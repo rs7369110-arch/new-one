@@ -97,8 +97,7 @@ const ExamEntry: React.FC<ExamEntryProps> = ({ user, students, marks, onUpdateMa
   const calculateStudentStats = (studentId: string) => {
     const studentSubjects = gridData[studentId] || {};
     let totalObtained = 0;
-    // Explicitly type the iterator parameter to avoid 'unknown' type errors during property access
-    Object.values(studentSubjects).forEach((s: any) => {
+    Object.values(studentSubjects).forEach(s => {
       totalObtained += (s.theory + s.practical);
     });
     const maxMarks = availableSubjects.length * 100;

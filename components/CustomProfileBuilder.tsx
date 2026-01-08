@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { CustomProfileTemplate, Student } from '../types';
 
@@ -99,8 +100,7 @@ const CustomProfileBuilder: React.FC<CustomProfileBuilderProps> = ({ templates, 
   const deleteRow = (idx: number) => {
     if (!activeTemplateId || !activeTemplate) return;
     const rowData = activeTemplate.data[idx];
-    // Explicitly type iterator parameter to any to fix inference issue with Object.values on dynamic records
-    const hasData = Object.values(rowData).some((val: any) => val.trim() !== '');
+    const hasData = Object.values(rowData).some(val => val.trim() !== '');
     
     if (hasData && !window.confirm("⚠️ This row has entries. Delete it anyway?")) return;
 
@@ -362,9 +362,8 @@ const CustomProfileBuilder: React.FC<CustomProfileBuilderProps> = ({ templates, 
                     className="flex-1 px-8 py-5 rounded-[2rem] bg-indigo-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-indigo-900 shadow-inner"
                     placeholder="New column name..."
                     value={columnInput}
-                    // Fix: Correctly update state and use onKeyDown for key detection
                     onChange={e => setColumnInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addColumnToModal()}
+                    onKeyPress={e => e.key === 'Enter' && addColumnToModal()}
                   />
                   <button onClick={addColumnToModal} className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black hover:bg-black transition-all">Add Pillar</button>
                 </div>
