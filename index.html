@@ -3,15 +3,26 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jannat School</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e1b4b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="android-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Jannat Academy | Mobile ERP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <!-- PDF Generation Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { 
+          font-family: 'Inter', sans-serif; 
+          overscroll-behavior-y: contain; /* Prevents pull-to-refresh for better app feel */
+          -webkit-tap-highlight-color: transparent;
+        }
+        /* Mobile scroll behavior */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 20px; }
     </style>
 <script type="importmap">
 {
@@ -25,7 +36,7 @@
 }
 </script>
 </head>
-<body class="bg-gray-50 text-gray-900">
+<body class="bg-[#0a0a0c] text-gray-900 overflow-hidden">
     <div id="root"></div>
 </body>
 </html>

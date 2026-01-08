@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { CustomProfileTemplate, Student } from '../types';
 
@@ -363,7 +362,9 @@ const CustomProfileBuilder: React.FC<CustomProfileBuilderProps> = ({ templates, 
                     className="flex-1 px-8 py-5 rounded-[2rem] bg-indigo-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-indigo-900 shadow-inner"
                     placeholder="New column name..."
                     value={columnInput}
-                    onChange={e => e.key === 'Enter' && addColumnToModal()}
+                    // Fix: Correctly update state and use onKeyDown for key detection
+                    onChange={e => setColumnInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addColumnToModal()}
                   />
                   <button onClick={addColumnToModal} className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] font-black hover:bg-black transition-all">Add Pillar</button>
                 </div>
