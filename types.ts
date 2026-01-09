@@ -11,13 +11,29 @@ export enum Language {
   GU = 'GU'
 }
 
+export enum PaymentMode {
+  ONLINE = 'ONLINE',
+  OFFLINE = 'OFFLINE'
+}
+
+export interface FeeTransaction {
+  id: string;
+  studentId: string;
+  amount: number;
+  date: string;
+  mode: PaymentMode;
+  method: string; // e.g., 'UPI', 'Cash', 'Card', 'Cheque'
+  transactionId: string;
+  remarks?: string;
+}
+
 export interface User {
   id: string;
   name: string;
   role: UserRole;
   email: string;
   password?: string;
-  studentId?: string; // For parents/students
+  studentId?: string; // For parents/students to link to their records
 }
 
 export interface CustomProfileTemplate {
@@ -55,7 +71,7 @@ export interface Student {
   id: string;
   rollNo: string;
   admissionNo: string;
-  grNo?: string; // General Register Number
+  grNo?: string;
   name: string;
   dob: string;
   grade: string;
@@ -65,7 +81,7 @@ export interface Student {
   emergencyContact: string;
   totalFees: number;
   paidFees: number;
-  photo?: string; // Base64 encoded image string
+  photo?: string;
   aadharNo?: string;
   uidNo?: string;
   panNo?: string;
@@ -92,13 +108,13 @@ export interface FoodItem {
 export interface MarksRecord {
   id: string;
   studentId: string;
-  term: string; // e.g., 'Final Exam', 'Mid Term'
+  term: string;
   subjects: {
     [key: string]: {
       theory: number;
       practical: number;
       total: number;
-      isLocked?: boolean; // New: Lock per subject-term
+      isLocked?: boolean;
     };
   };
   remarks: string;
@@ -110,8 +126,8 @@ export interface CurriculumItem {
   grade: string;
   subject: string;
   title: string;
-  fileData: string; // Base64
-  fileType: string; // mimeType
+  fileData: string;
+  fileType: string;
   fileName: string;
   date: string;
 }
@@ -119,10 +135,10 @@ export interface CurriculumItem {
 export interface GalleryItem {
   id: string;
   type: 'IMAGE' | 'VIDEO';
-  grade: string; // New: To support class-wise filtering
+  grade: string;
   title: string;
   description: string;
-  url: string; // Base64 for Image, YouTube Link for Video
+  url: string;
   date: string;
 }
 
@@ -140,7 +156,7 @@ export interface SchoolMessage {
 }
 
 export interface AttendanceRecord {
-  date: string; // ISO format
+  date: string;
   studentId: string;
   status: 'PRESENT' | 'ABSENT' | 'LATE';
 }

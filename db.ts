@@ -19,7 +19,8 @@ const DB_KEYS = {
   SIDEBAR_ORDER: 'edu_sidebar_menu_order',
   CUSTOM_TEMPLATES: 'edu_custom_templates',
   LAST_VIEWED: 'edu_last_viewed_stamps',
-  LANGUAGE: 'edu_app_language'
+  LANGUAGE: 'edu_app_language',
+  FEE_TRANSACTIONS: 'edu_fee_transactions'
 };
 
 export const storage = {

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language } from './types';
+import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language, FeeTransaction } from './types';
 import { storage, DB_KEYS } from './db';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -66,6 +66,7 @@ const App: React.FC = () => {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [customTemplates, setCustomTemplates] = useState<CustomProfileTemplate[]>([]);
+  const [feeTransactions, setFeeTransactions] = useState<FeeTransaction[]>([]);
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [lastViewed, setLastViewed] = useState<Record<string, number>>(storage.get(DB_KEYS.LAST_VIEWED, {}));
@@ -89,6 +90,7 @@ const App: React.FC = () => {
     setLeaves(storage.get(DB_KEYS.LEAVES, []));
     setFeeStructures(storage.get(DB_KEYS.FEE_STRUCTURES, []));
     setCustomTemplates(storage.get(DB_KEYS.CUSTOM_TEMPLATES, []));
+    setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
   }, []);
 
   const triggerNotification = (title: string, message: string, type: Notification['type'] = 'info') => {
@@ -222,6 +224,11 @@ const App: React.FC = () => {
     storage.set(DB_KEYS.FEE_STRUCTURES, structures);
   };
 
+  const updateFeeTransactions = (transactions: FeeTransaction[]) => {
+    setFeeTransactions(transactions);
+    storage.set(DB_KEYS.FEE_TRANSACTIONS, transactions);
+  };
+
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }
@@ -241,7 +248,7 @@ const App: React.FC = () => {
           lang={currentLang}
         />;
       case 'fee-reports':
-        return <FeeReports students={students} />;
+        return <FeeReports students={students} transactions={feeTransactions} />;
       case 'custom-builder':
         return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={students} />;
       case 'leaves':
@@ -275,9 +282,9 @@ const App: React.FC = () => {
       case 'homework':
         return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} />;
       case 'fees':
-        return <FeesManager user={currentUser} students={students} setStudents={updateFees} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} />;
+        return <FeesManager user={currentUser} students={students} setStudents={updateFees} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} />;
       case 'fees-setup':
-        return currentUser.role === UserRole.ADMIN ? <FeesManager user={currentUser} students={students} setStudents={updateFees} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} initialMode="SETUP" /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+        return currentUser.role === UserRole.ADMIN ? <FeesManager user={currentUser} students={students} setStudents={updateFees} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
       case 'icards':
         return currentUser.role === UserRole.ADMIN ? <ICardGenerator students={students} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
       default:
@@ -296,17 +303,13 @@ const App: React.FC = () => {
     }
   };
 
-  const unreadCounts = getUnreadCounts();
-
   return (
     <div className={`flex flex-col md:flex-row h-screen overflow-hidden relative font-['Inter'] transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
-      {/* Immersive Background Blobs */}
       <div className="fixed inset-0 pointer-events-none z-0">
          <div className={`absolute top-[-10%] left-[-5%] w-[60%] h-[70%] rounded-full blur-[120px] transition-colors duration-1000 ${isDarkMode ? 'bg-indigo-900/20' : 'bg-indigo-500/10'}`}></div>
          <div className={`absolute bottom-[0%] right-[-5%] w-[50%] h-[60%] rounded-full blur-[100px] transition-colors duration-1000 ${isDarkMode ? 'bg-purple-900/15' : 'bg-purple-500/10'}`}></div>
       </div>
 
-      {/* Modern Notification System */}
       <div className="fixed top-6 right-6 z-[3000] flex flex-col gap-3 w-80 pointer-events-none">
         {notifications.map(n => (
           <div key={n.id} className={`pointer-events-auto w-full p-4 rounded-2xl shadow-2xl backdrop-blur-3xl border animate-notif-in flex gap-4 items-start ${
@@ -326,7 +329,6 @@ const App: React.FC = () => {
         ))}
       </div>
 
-      {/* Mobile Sticky Header */}
       <div className={`md:hidden flex items-center justify-between px-6 py-4 sticky top-0 z-[2000] border-b backdrop-blur-xl ${
         isDarkMode ? 'bg-[#0a0a0c]/80 border-white/5' : 'bg-white/80 border-slate-100'
       }`}>
@@ -360,7 +362,8 @@ const App: React.FC = () => {
         userName={currentUser.name}
         isDarkMode={isDarkMode}
         toggleTheme={toggleTheme}
-        unreadCounts={unreadCounts}
+        /* Call getUnreadCounts to fix the "Cannot find name 'unreadCounts'" error */
+        unreadCounts={getUnreadCounts()}
         currentLang={currentLang}
         toggleLanguage={toggleLanguage}
         isOpen={isSidebarOpen}
