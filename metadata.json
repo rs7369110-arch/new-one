@@ -1,6 +1,6 @@
 {
-  "name": " Jannat School - Advanced Management System",
-  "description": "A comprehensive offline-capable school management system for Jannat School with attendance, student tracking, notice boards, homework assignments, and fee management.",
+  "name": "Digital Education - Advanced Management System",
+  "description": "A comprehensive offline-capable school management system for Digital Education with attendance, student tracking, notice boards, homework assignments, and fee management.",
   "requestFramePermissions": [
     "camera",
     "microphone"

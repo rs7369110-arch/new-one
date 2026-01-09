@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate } from './types';
+import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language } from './types';
 import { storage, DB_KEYS } from './db';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -24,6 +24,7 @@ import StudentReports from './components/StudentReports';
 import ExamEntry from './components/ExamEntry';
 import FeeReports from './components/FeeReports';
 import CustomProfileBuilder from './components/CustomProfileBuilder';
+import Logo from './components/Logo';
 
 const DEFAULT_FOOD_CHART: FoodItem[] = [
   { day: 'Monday', breakfast: 'Milk & Poha', breakfastPrice: 20, lunch: 'Dal Fry & Rice', lunchPrice: 40 },
@@ -36,10 +37,20 @@ const DEFAULT_FOOD_CHART: FoodItem[] = [
 
 const DEFAULT_SUBJECTS = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Science', 'Computer'];
 
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'success' | 'error' | 'info' | 'broadcast' | 'notice' | 'gallery';
+}
+
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+  const [currentLang, setCurrentLang] = useState<Language>(storage.get(DB_KEYS.LANGUAGE as any, Language.EN));
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
   const [students, setStudents] = useState<Student[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
@@ -56,7 +67,8 @@ const App: React.FC = () => {
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [customTemplates, setCustomTemplates] = useState<CustomProfileTemplate[]>([]);
   
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [lastViewed, setLastViewed] = useState<Record<string, number>>(storage.get(DB_KEYS.LAST_VIEWED, {}));
 
   useEffect(() => {
     const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
@@ -79,116 +91,135 @@ const App: React.FC = () => {
     setCustomTemplates(storage.get(DB_KEYS.CUSTOM_TEMPLATES, []));
   }, []);
 
-  const notify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+  const triggerNotification = (title: string, message: string, type: Notification['type'] = 'info') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    const newNotif = { id, title, message, type };
+    setNotifications(prev => [newNotif, ...prev]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4500);
+  };
+
+  const updateViewedStamp = (tab: string) => {
+    const newStamps = { ...lastViewed, [tab]: Date.now() };
+    setLastViewed(newStamps);
+    storage.set(DB_KEYS.LAST_VIEWED, newStamps);
+    setActiveTab(tab);
+    setIsSidebarOpen(false); // Close sidebar on mobile after selection
+  };
+
+  const toggleLanguage = () => {
+    const nextLang = currentLang === Language.EN ? Language.GU : Language.EN;
+    setCurrentLang(nextLang);
+    storage.set(DB_KEYS.LANGUAGE as any, nextLang);
+    triggerNotification('Language Switched', `System now operating in ${nextLang === Language.EN ? 'English' : 'Gujarati'}.`, 'info');
+  };
+
+  const getUnreadCounts = () => {
+    return {
+      notices: notices.filter(n => new Date(n.date).getTime() > (lastViewed['notices'] || 0)).length,
+      messages: messages.filter(m => new Date(m.date).getTime() > (lastViewed['messages'] || 0)).length,
+      gallery: gallery.filter(g => new Date(g.date).getTime() > (lastViewed['gallery'] || 0)).length,
+      leaves: leaves.filter(l => l.status === 'PENDING').length
+    };
   };
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     storage.set(DB_KEYS.USER, user);
-    notify(`Welcome, ${user.name}! Access Granted.`, 'success');
+    triggerNotification('Access Granted', `Welcome back, System Operator ${user.name}!`, 'success');
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     storage.clear(DB_KEYS.USER);
-    notify('Logged out successfully.', 'info');
+    triggerNotification('Session Terminated', 'You have been logged out securely.', 'info');
   };
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
-    notify(`${!isDarkMode ? 'Dark' : 'Light'} Mode Activated`, 'info');
+    triggerNotification('System Theme', `${!isDarkMode ? 'Dark' : 'Light'} UI Profile applied.`, 'info');
   };
 
   const updateCustomTemplates = (templates: CustomProfileTemplate[]) => {
     setCustomTemplates(templates);
     storage.set(DB_KEYS.CUSTOM_TEMPLATES, templates);
-    notify('Profiles synced.');
   };
 
   const updateTeachers = (newTeachers: TeacherAssignment[]) => {
     setTeachers(newTeachers);
     storage.set(DB_KEYS.TEACHERS, newTeachers);
-    notify('Teachers updated.');
   };
 
   const updateFoodChart = (newFoodChart: FoodItem[]) => {
     setFoodChart(newFoodChart);
     storage.set(DB_KEYS.FOOD_CHART, newFoodChart);
-    notify('Food chart updated.');
   };
 
   const updateMarks = (newMarks: MarksRecord[]) => {
     setMarks(newMarks);
     storage.set(DB_KEYS.MARKS, newMarks);
-    notify('Marks saved.');
   };
 
   const updateAvailableSubjects = (newSubjects: string[]) => {
     setAvailableSubjects(newSubjects);
     storage.set(DB_KEYS.SUBJECT_LIST, newSubjects);
-    notify('Subjects updated.');
   };
 
   const updateCurriculum = (newItems: CurriculumItem[]) => {
     setCurriculum(newItems);
     storage.set(DB_KEYS.CURRICULUM, newItems);
-    notify('Curriculum updated.');
   };
 
   const updateMessages = (newMsgs: SchoolMessage[]) => {
+    const isNew = newMsgs.length > messages.length;
     setMessages(newMsgs);
     storage.set(DB_KEYS.MESSAGES, newMsgs);
-    notify('Broadcast sent.');
+    if (isNew) triggerNotification('New Broadcast', 'A new message has been published in the room.', 'broadcast');
   };
 
   const updateGallery = (newItems: GalleryItem[]) => {
+    const isNew = newItems.length > gallery.length;
     setGallery(newItems);
     storage.set(DB_KEYS.GALLERY, newItems);
-    notify('Gallery updated.');
+    if (isNew) triggerNotification('Memory Wall', 'New media has been added to the academy gallery.', 'gallery');
   };
 
   const updateStudents = (newStudents: Student[]) => {
     setStudents(newStudents);
     storage.set(DB_KEYS.STUDENTS, newStudents);
-    notify('Students synced.');
   };
 
   const updateLeaves = (newLeaves: LeaveRequest[]) => {
     setLeaves(newLeaves);
     storage.set(DB_KEYS.LEAVES, newLeaves);
-    notify('Leaves processed.');
   };
 
   const updateAttendance = (a: AttendanceRecord[]) => {
     setAttendance(a);
     storage.set(DB_KEYS.ATTENDANCE, a);
-    notify('Attendance synced.');
   };
 
   const updateNotices = (n: Notice[]) => {
+    const isNew = n.length > notices.length;
     setNotices(n); 
     storage.set(DB_KEYS.NOTICES, n); 
-    notify('Notices refreshed.');
+    if (isNew) triggerNotification('Official Notice', 'A naya notice board par post kiya gaya hai.', 'notice');
   };
 
   const updateHomework = (h: Homework[]) => {
     setHomeworks(h); 
     storage.set(DB_KEYS.HOMEWORK, h); 
-    notify('Homework updated.');
   };
 
   const updateFees = (s: Student[]) => {
     setStudents(s); 
     storage.set(DB_KEYS.STUDENTS, s); 
-    notify('Fees updated.');
   };
 
   const updateFeeStructures = (structures: FeeStructure[]) => {
     setFeeStructures(structures);
     storage.set(DB_KEYS.FEE_STRUCTURES, structures);
-    notify('Fee structure saved.');
   };
 
   if (!currentUser) {
@@ -207,6 +238,7 @@ const App: React.FC = () => {
           teachers={teachers}
           onUpdateTeachers={updateTeachers}
           isDarkMode={isDarkMode}
+          lang={currentLang}
         />;
       case 'fee-reports':
         return <FeeReports students={students} />;
@@ -217,13 +249,13 @@ const App: React.FC = () => {
       case 'messages':
         return <MessageManager user={currentUser} messages={messages} onUpdateMessages={updateMessages} />;
       case 'gallery':
-        return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} />;
+        return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} isDarkMode={isDarkMode} />;
       case 'activity':
-        return currentUser.role === UserRole.ADMIN ? <ActivityReport activities={activities} onClearLog={() => { setActivities([]); storage.set(DB_KEYS.ACTIVITY_LOG, []); notify('Audit logs cleared!'); }} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+        return currentUser.role === UserRole.ADMIN ? <ActivityReport activities={activities} onClearLog={() => { setActivities([]); storage.set(DB_KEYS.ACTIVITY_LOG, []); triggerNotification('Logs Cleared', 'System audit history purged.', 'info'); }} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
       case 'students':
         return currentUser.role === UserRole.ADMIN ? <StudentManagement students={students} setStudents={updateStudents} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
       case 'student-reports':
-        return currentUser.role === UserRole.ADMIN ? <StudentReports students={students} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+        return currentUser.role === UserRole.ADMIN ? <StudentReports students={students} attendance={attendance} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
       case 'exam-entry':
         return <ExamEntry user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
       case 'teachers':
@@ -249,54 +281,104 @@ const App: React.FC = () => {
       case 'icards':
         return currentUser.role === UserRole.ADMIN ? <ICardGenerator students={students} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
       default:
-        return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} />;
+        return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} />;
     }
   };
 
+  const getNotifIcon = (type: Notification['type']) => {
+    switch(type) {
+      case 'success': return 'fa-circle-check text-emerald-500';
+      case 'error': return 'fa-circle-exclamation text-rose-500';
+      case 'broadcast': return 'fa-paper-plane text-indigo-500';
+      case 'notice': return 'fa-bolt-lightning text-amber-500';
+      case 'gallery': return 'fa-images text-pink-500';
+      default: return 'fa-bell text-blue-500';
+    }
+  };
+
+  const unreadCounts = getUnreadCounts();
+
   return (
-    <div className={`flex h-screen overflow-hidden relative font-['Inter'] transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
+    <div className={`flex flex-col md:flex-row h-screen overflow-hidden relative font-['Inter'] transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
       {/* Immersive Background Blobs */}
       <div className="fixed inset-0 pointer-events-none z-0">
          <div className={`absolute top-[-10%] left-[-5%] w-[60%] h-[70%] rounded-full blur-[120px] transition-colors duration-1000 ${isDarkMode ? 'bg-indigo-900/20' : 'bg-indigo-500/10'}`}></div>
          <div className={`absolute bottom-[0%] right-[-5%] w-[50%] h-[60%] rounded-full blur-[100px] transition-colors duration-1000 ${isDarkMode ? 'bg-purple-900/15' : 'bg-purple-500/10'}`}></div>
-         <div className={`absolute top-[20%] right-[10%] w-[40%] h-[50%] rounded-full blur-[150px] transition-colors duration-1000 ${isDarkMode ? 'bg-blue-900/10' : 'bg-blue-500/5'}`}></div>
       </div>
 
-      {toast && (
-        <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[2000] animate-toast-in">
-          <div className={`flex items-center gap-4 px-10 py-5 rounded-[2.5rem] shadow-2xl backdrop-blur-3xl border border-white/10 ${
-            toast.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 
-            toast.type === 'error' ? 'bg-rose-500/20 text-rose-400' : 'bg-indigo-500/20 text-indigo-400'
+      {/* Modern Notification System */}
+      <div className="fixed top-6 right-6 z-[3000] flex flex-col gap-3 w-80 pointer-events-none">
+        {notifications.map(n => (
+          <div key={n.id} className={`pointer-events-auto w-full p-4 rounded-2xl shadow-2xl backdrop-blur-3xl border animate-notif-in flex gap-4 items-start ${
+            isDarkMode ? 'bg-white/10 border-white/10' : 'bg-white border-slate-100 shadow-indigo-100'
           }`}>
-            <i className={`fa-solid ${toast.type === 'success' ? 'fa-circle-check' : toast.type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info'} text-xl`}></i>
-            <span className="font-black text-xs uppercase tracking-widest">{toast.message}</span>
+             <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                <i className={`fa-solid ${getNotifIcon(n.type)} text-lg`}></i>
+             </div>
+             <div className="flex-1 min-w-0">
+                <h4 className={`font-black text-xs uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{n.title}</h4>
+                <p className="text-[10px] font-medium text-slate-400 leading-relaxed mt-1">{n.message}</p>
+             </div>
+             <button onClick={() => setNotifications(prev => prev.filter(x => x.id !== n.id))} className="text-slate-500 hover:text-white transition-colors">
+                <i className="fa-solid fa-xmark text-xs"></i>
+             </button>
           </div>
+        ))}
+      </div>
+
+      {/* Mobile Sticky Header */}
+      <div className={`md:hidden flex items-center justify-between px-6 py-4 sticky top-0 z-[2000] border-b backdrop-blur-xl ${
+        isDarkMode ? 'bg-[#0a0a0c]/80 border-white/5' : 'bg-white/80 border-slate-100'
+      }`}>
+        <button 
+          onClick={() => setIsSidebarOpen(true)}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+            isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
+          }`}
+        >
+          <i className="fa-solid fa-bars-staggered text-xl"></i>
+        </button>
+        <div className="flex items-center gap-2">
+           <Logo size="sm" />
+           <span className={`font-black text-lg tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>DIGITAL EDUCATION</span>
         </div>
-      )}
+        <button 
+           onClick={toggleTheme}
+           className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+             isDarkMode ? 'bg-amber-500/10 text-amber-500' : 'bg-amber text-amber-600'
+           }`}
+        >
+           <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+        </button>
+      </div>
 
       <Sidebar 
         role={currentUser.role} 
         activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+        setActiveTab={updateViewedStamp} 
         onLogout={handleLogout} 
         userName={currentUser.name}
         isDarkMode={isDarkMode}
         toggleTheme={toggleTheme}
-        pendingLeavesCount={leaves.filter(l => l.status === 'PENDING').length}
+        unreadCounts={unreadCounts}
+        currentLang={currentLang}
+        toggleLanguage={toggleLanguage}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
       
-      <main className="flex-1 overflow-y-auto p-6 md:p-12 relative z-10 custom-scrollbar">
+      <main className="flex-1 overflow-y-auto p-4 md:p-12 relative z-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto">
           {renderContent()}
         </div>
       </main>
 
       <style>{`
-        @keyframes toastIn {
-          from { transform: translate(-50%, -100px); opacity: 0; }
-          to { transform: translate(-50%, 0); opacity: 1; }
+        @keyframes notifIn {
+          from { transform: translateX(120%) scale(0.9); opacity: 0; }
+          to { transform: translateX(0) scale(1); opacity: 1; }
         }
-        .animate-toast-in { animation: toastIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .animate-notif-in { animation: notifIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}; border-radius: 20px; }

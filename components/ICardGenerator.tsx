@@ -144,7 +144,7 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students }) => {
                         <Logo size="sm" className="brightness-200" />
                     </div>
                     <div className="text-center relative z-10">
-                        <h2 className="text-white font-black text-xl leading-none uppercase tracking-tighter">Jannat Academy</h2>
+                        <h2 className="text-white font-black text-xl leading-none uppercase tracking-tighter">Digital Education</h2>
                         <div className="flex items-center justify-center gap-2 mt-1">
                            <div className="h-[1px] w-4 bg-amber-400"></div>
                            <p className="text-amber-400 text-[9px] font-black uppercase tracking-[0.3em]">Excellence Defined</p>

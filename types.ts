@@ -6,6 +6,11 @@ export enum UserRole {
   TEACHER = 'TEACHER'
 }
 
+export enum Language {
+  EN = 'EN',
+  GU = 'GU'
+}
+
 export interface User {
   id: string;
   name: string;
@@ -114,6 +119,7 @@ export interface CurriculumItem {
 export interface GalleryItem {
   id: string;
   type: 'IMAGE' | 'VIDEO';
+  grade: string; // New: To support class-wise filtering
   title: string;
   description: string;
   url: string; // Base64 for Image, YouTube Link for Video

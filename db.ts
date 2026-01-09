@@ -17,7 +17,9 @@ const DB_KEYS = {
   LEAVES: 'edu_teacher_leaves',
   FEE_STRUCTURES: 'edu_fee_structures',
   SIDEBAR_ORDER: 'edu_sidebar_menu_order',
-  CUSTOM_TEMPLATES: 'edu_custom_templates'
+  CUSTOM_TEMPLATES: 'edu_custom_templates',
+  LAST_VIEWED: 'edu_last_viewed_stamps',
+  LANGUAGE: 'edu_app_language'
 };
 
 export const storage = {

@@ -20,11 +20,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const inputUser = email.toLowerCase();
     
     if (inputUser === 'zuber' && password === 'Zuber@1994') {
-      onLogin({ id: 'admin-1', name: 'Zuber', email: 'zuber@jannat.com', role: UserRole.ADMIN });
+      onLogin({ id: 'admin-1', name: 'Zuber', email: 'zuber@digital.com', role: UserRole.ADMIN });
     } else if (inputUser === 'ayaz' && password === 'Ayaz@1992') {
-      onLogin({ id: 'admin-2', name: 'Ayaz', email: 'ayaz@jannat.com', role: UserRole.ADMIN });
+      onLogin({ id: 'admin-2', name: 'Ayaz', email: 'ayaz@digital.com', role: UserRole.ADMIN });
     } else if (inputUser === 'demo' && password === 'demo') {
-      onLogin({ id: 'demo-1', name: 'Demo User', email: 'demo@jannat.com', role: role });
+      onLogin({ id: 'demo-1', name: 'Demo User', email: 'demo@digital.com', role: role });
     } else {
       setError('Credentials not found in Academy records.');
     }
@@ -43,7 +43,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div className="flex justify-center mb-8 transform hover:scale-110 transition-transform duration-700">
             <Logo size="lg" />
           </div>
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Jannat <span className="text-indigo-400">Academy</span></h1>
+          <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Digital <span className="text-indigo-400">Education</span></h1>
           <p className="text-slate-500 mt-3 text-[10px] font-black uppercase tracking-[0.5em]">Terminal Access Port</p>
         </div>
 

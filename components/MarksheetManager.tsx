@@ -16,8 +16,8 @@ interface MarksheetManagerProps {
 declare var html2pdf: any;
 
 const SIGN_KEYS = {
-  PRINCIPAL: 'jannat_sign_principal',
-  TEACHER: 'jannat_sign_teacher'
+  PRINCIPAL: 'digital_sign_principal',
+  TEACHER: 'digital_sign_teacher'
 };
 
 const MarksheetManager: React.FC<MarksheetManagerProps> = ({ 
@@ -176,7 +176,7 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
           <div className="flex gap-8 items-center">
              <Logo size="lg" className="drop-shadow-2xl scale-110" />
              <div>
-               <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2">Jannat Academy</h1>
+               <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2">Digital Education</h1>
                <p className="text-[12px] font-black text-indigo-400 uppercase tracking-[0.4em] bg-indigo-50 px-6 py-2 rounded-full inline-block">Center of Academic Excellence</p>
                <p className="text-base font-bold text-gray-400 mt-3 italic tracking-wide">Educating the Leaders of Tomorrow.</p>
              </div>
@@ -291,7 +291,7 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
                <div className="h-28 flex items-center justify-center mb-6 relative overflow-hidden group">
                   {principalSign ? (
                     <img src={principalSign} className="max-h-full max-w-full object-contain mix-blend-multiply scale-125" alt="Principal Sign" />
-                  ) : <div className="text-[10px] font-black text-gray-300">Academy Principal Sign</div>}
+                  ) : <div className="text-[10px] font-black text-gray-300">Principal Sign</div>}
                </div>
                <div className="w-full h-1 bg-indigo-900/10 mb-3 rounded-full"></div>
                <p className="text-base font-black text-indigo-900 tracking-tight">Principal Seal</p>

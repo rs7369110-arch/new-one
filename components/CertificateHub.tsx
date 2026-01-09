@@ -14,8 +14,8 @@ type CertType = 'BONAFIDE' | 'CHARACTER' | 'ATTEMPT' | null;
 declare var html2pdf: any;
 
 const SIGN_KEYS = {
-  PRINCIPAL: 'jannat_sign_principal',
-  TEACHER: 'jannat_sign_teacher'
+  PRINCIPAL: 'digital_sign_principal',
+  TEACHER: 'digital_sign_teacher'
 };
 
 const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
@@ -81,7 +81,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
             Son/Daughter of <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.parentName}</strong>, 
             bearing Admission No. <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.admissionNo}</strong> 
             and GR Number <strong className="text-amber-600 border-b-2 border-amber-200 pb-1 px-2">{student.grNo || '---'}</strong>, 
-            is a bonafide student of <strong className="text-indigo-900 uppercase">Jannat Academy</strong>. 
+            is a bonafide student of <strong className="text-indigo-900 uppercase">Digital Education</strong>. 
             He/She is currently studying in Grade <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.grade}th</strong> 
             during the Academic Session <strong className="text-indigo-900">{sessionRange}</strong>.
             <br /><br />
@@ -96,7 +96,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
             Certified that Master/Miss <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.name}</strong>, 
             GR No. <strong className="text-amber-600 border-b-2 border-amber-200 pb-1 px-2">{student.grNo || '---'}</strong>, 
             has been a regular student of this Academy from Grade 1 to <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.grade}th</strong>. 
-            During his/her tenure at <strong className="text-indigo-900">Jannat Academy</strong>, 
+            During his/her tenure at <strong className="text-indigo-900">Digital Education</strong>, 
             his/her conduct and character have been found to be <strong className="text-emerald-600 border-b-2 border-emerald-200 pb-1 px-2">EXCELLENT</strong>.
             <br /><br />
             He/She bears a good moral character and possesses a disciplined academic attitude. We wish him/her a very bright and prosperous future in all upcoming endeavors.
@@ -138,7 +138,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
 
         <div className="relative z-10 flex flex-col items-center">
            <Logo size="lg" className="mb-6 drop-shadow-xl" />
-           <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2">Jannat Academy</h1>
+           <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2">Digital Education</h1>
            <p className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] bg-indigo-50 px-8 py-2 rounded-full mb-10">Official Academic Secretariat</p>
            
            <div className="w-full h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent mb-16"></div>
@@ -169,7 +169,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
                  </div>
                  <div className="w-64 h-0.5 bg-indigo-900 mb-2"></div>
                  <p className="text-lg font-black text-indigo-950 uppercase tracking-tighter">Authorized Signature</p>
-                 <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mt-1">Academy Principal Office</p>
+                 <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] mt-1">Principal Office</p>
               </div>
            </div>
         </div>
@@ -187,7 +187,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-4xl font-black text-indigo-900 tracking-tighter">Certificate Factory</h1>
-          <p className="text-amber-600 font-medium italic">Generate formal Academy certifications for your students. 📜</p>
+          <p className="text-amber-600 font-medium italic">Generate formal certifications for your students. 📜</p>
         </div>
         <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center text-3xl shadow-xl shadow-amber-50">
           <i className="fa-solid fa-award"></i>
