@@ -36,9 +36,9 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
   // Find current user's grade if they are a student or parent
   const currentUserGrade = useMemo(() => {
     if (user.role === UserRole.STUDENT || user.role === UserRole.PARENT) {
-      // Logic would typically find the linked student's grade
-      // For this implementation, we assume we know their grade or show 'All'
-      return user.studentId ? students?.find(s => s.id === user.studentId)?.grade : null;
+      if (user.studentId) {
+        return students?.find(s => s.id === user.studentId)?.grade;
+      }
     }
     return null;
   }, [user, students]);
@@ -86,8 +86,8 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
 
   const selectAllGrades = () => {
     setFormData(prev => {
-      const isAllSelected = prev.targetGrades?.length === CLASSES.length;
-      return { ...prev, targetGrades: isAllSelected ? ['All'] : [...CLASSES] };
+      const isCurrentlySelectAll = prev.targetGrades?.length === CLASSES.length;
+      return { ...prev, targetGrades: isCurrentlySelectAll ? ['All'] : [...CLASSES] };
     });
   };
 
@@ -95,22 +95,20 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
     e.preventDefault();
     if (!isAdmin) return;
 
-    const dataToSave = {
-      ...formData,
-      attachment: attachment || undefined,
-      targetGrades: formData.targetGrades?.length === 0 ? ['All'] : formData.targetGrades
-    };
+    const finalGrades = (formData.targetGrades && formData.targetGrades.length > 0) ? formData.targetGrades : ['All'];
 
     if (editingId) {
       const updated = notices.map(n => 
-        n.id === editingId ? { ...n, ...dataToSave } : n
+        n.id === editingId ? { ...n, ...formData, targetGrades: finalGrades, attachment: attachment || undefined } : n
       );
       setNotices(updated as Notice[]);
     } else {
       const newNotice: Notice = {
         id: "NT-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
         date: new Date().toLocaleDateString('en-GB'),
-        ...(dataToSave as Notice)
+        ...(formData as Notice),
+        targetGrades: finalGrades,
+        attachment: attachment || undefined
       };
       setNotices([...notices, newNotice]);
     }
@@ -148,17 +146,17 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
 
   const filteredNotices = useMemo(() => {
     return notices.filter(n => {
-      // Search filter
+      // Search check
       const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            n.content.toLowerCase().includes(searchQuery.toLowerCase());
       
-      // Category filter
+      // Category check
       const matchesCat = selectedCategory === 'ALL' || n.category === selectedCategory;
       
-      // Grade filter (For Student view)
+      // Grade check: Admins see everything. Students only see 'All' or their specific grade.
       let matchesGrade = true;
-      if (currentUserGrade) {
-        matchesGrade = n.targetGrades.includes('All') || n.targetGrades.includes(currentUserGrade);
+      if (user.role === UserRole.STUDENT || user.role === UserRole.PARENT) {
+        matchesGrade = n.targetGrades.includes('All') || (currentUserGrade ? n.targetGrades.includes(currentUserGrade) : false);
       }
 
       return matchesSearch && matchesCat && matchesGrade;
@@ -167,7 +165,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
       if (!a.isPinned && b.isPinned) return 1;
       return 0;
     });
-  }, [notices, searchQuery, selectedCategory, currentUserGrade]);
+  }, [notices, searchQuery, selectedCategory, currentUserGrade, user.role]);
 
   const getCategoryStyles = (cat: string) => {
     switch (cat) {
@@ -212,7 +210,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
               <input 
                 type="text" 
                 className="pl-14 pr-6 py-4 bg-white border-2 border-indigo-50 rounded-2xl outline-none focus:border-indigo-400 w-full sm:w-80 font-bold text-sm shadow-sm transition-all"
-                placeholder="Search announcements..."
+                placeholder="Search archives..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
@@ -224,13 +222,13 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                className={`px-10 py-5 rounded-[2rem] font-black shadow-2xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 ${isAdding ? 'bg-rose-500 text-white' : 'bg-indigo-900 text-white'}`}
              >
                 <i className={`fa-solid ${isAdding ? 'fa-xmark' : 'fa-plus'}`}></i>
-                {isAdding ? 'Discard Draft' : 'Post New Notice'}
+                {isAdding ? 'Cancel Entry' : 'Post New Notice'}
              </button>
            )}
         </div>
       </header>
 
-      {/* Category Tabs */}
+      {/* Filter Tabs */}
       <div className="flex flex-wrap gap-3">
         {CATEGORIES.map(cat => (
           <button
@@ -263,7 +261,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                  />
               </div>
               <div className="space-y-3">
-                 <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em] ml-2">Priority Category</label>
+                 <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em] ml-2">Protocol Category</label>
                  <select 
                    required
                    className="w-full px-8 py-5 rounded-[2.5rem] bg-indigo-50/50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-indigo-900 shadow-inner appearance-none"
@@ -277,9 +275,9 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
 
            <div className="space-y-3 relative z-10">
               <div className="flex justify-between items-center px-2">
-                 <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em]">Target Class Recipients</label>
+                 <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em]">Target Audience (Classes)</label>
                  <button type="button" onClick={selectAllGrades} className="text-[9px] font-black text-indigo-600 uppercase hover:underline">
-                    {formData.targetGrades?.length === CLASSES.length ? 'Deselect Classes' : 'Select All Classes'}
+                    {formData.targetGrades?.length === CLASSES.length ? 'Reset Selection' : 'Select All Classes'}
                  </button>
               </div>
               <div className="flex flex-wrap gap-2 p-6 bg-gray-50 rounded-[2.5rem] border-2 border-indigo-100 shadow-inner">
@@ -318,7 +316,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                 required
                 rows={5}
                 className="w-full px-10 py-8 rounded-[3rem] bg-indigo-50/50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-medium text-gray-700 shadow-inner text-lg leading-relaxed"
-                placeholder="Compose your message to the students and parents..."
+                placeholder="Compose your message..."
                 value={formData.content}
                 onChange={e => setFormData({...formData, content: e.target.value})}
               />
@@ -340,7 +338,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                       <div className="flex items-center gap-4 bg-emerald-50 text-emerald-600 px-6 py-4 rounded-2xl border border-emerald-100 animate-fade-in">
                          <i className={`fa-solid ${attachment.type === 'PDF' ? 'fa-file-pdf' : 'fa-image'}`}></i>
                          <span className="text-[10px] font-black truncate max-w-[150px]">{attachment.name}</span>
-                         <button type="button" onClick={() => setAttachment(null)} className="text-rose-500 hover:scale-125 transition-transform" title="Remove Attachment">
+                         <button type="button" onClick={() => setAttachment(null)} className="text-rose-500 hover:scale-125 transition-transform">
                             <i className="fa-solid fa-circle-xmark"></i>
                          </button>
                       </div>
@@ -358,7 +356,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                    }`}
                  >
                     <i className="fa-solid fa-thumbtack"></i>
-                    {formData.isPinned ? 'Pinned Important' : 'Normal Priority'}
+                    {formData.isPinned ? 'Pinned Important' : 'Standard Priority'}
                  </button>
                  
                  {editingId && (
@@ -366,7 +364,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                      type="button"
                      onClick={() => setNoticeToDelete({id: editingId, title: formData.title || 'this notice'})}
                      className="w-20 h-20 bg-rose-50 text-rose-500 rounded-[2rem] border-2 border-rose-100 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center text-2xl shadow-lg"
-                     title="Delete this notice permanently"
+                     title="Delete permanently"
                    >
                       <i className="fa-solid fa-trash-can"></i>
                    </button>
@@ -375,15 +373,15 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
            </div>
 
            <div className="flex justify-end gap-6 pt-6 relative z-10">
-              <button type="button" onClick={resetForm} className="px-12 py-5 bg-gray-100 text-gray-500 rounded-[2rem] font-black uppercase text-xs tracking-widest">Cancel</button>
+              <button type="button" onClick={resetForm} className="px-12 py-5 bg-gray-100 text-gray-500 rounded-[2rem] font-black uppercase text-xs tracking-widest">Discard</button>
               <button type="submit" className="px-20 py-5 bg-indigo-950 text-white rounded-[2rem] font-black shadow-2xl hover:bg-black transition-all text-xs uppercase tracking-[0.2em]">
-                {editingId ? 'Save Changes' : 'Broadcast Notice'}
+                {editingId ? 'Seal Changes' : 'Publish to Feed'}
               </button>
            </div>
         </form>
       )}
 
-      {/* Feed Layout */}
+      {/* Main Grid Feed */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
         {filteredNotices.length > 0 ? filteredNotices.map(n => (
           <div key={n.id} className="bg-white p-10 rounded-[4.5rem] shadow-2xl border-b-[16px] flex flex-col min-h-[520px] transition-all hover:shadow-indigo-900/10 hover:-translate-y-2 relative group" style={{ borderBottomColor: n.category === 'URGENT' ? '#f43f5e' : n.category === 'EXAM' ? '#4f46e5' : n.category === 'HOLIDAY' ? '#f59e0b' : n.category === 'FEE' ? '#10b981' : '#64748b' }}>
@@ -408,10 +406,10 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                <h3 className="text-3xl font-black text-indigo-950 leading-tight group-hover:text-indigo-600 transition-colors uppercase line-clamp-2">{n.title}</h3>
                <div className="flex flex-wrap gap-1 mt-3">
                   {n.targetGrades.includes('All') ? (
-                    <span className="text-[8px] font-black text-indigo-400 uppercase bg-indigo-50 px-2 py-0.5 rounded-md">School-Wide</span>
+                    <span className="text-[8px] font-black text-indigo-400 uppercase bg-indigo-50 px-2 py-0.5 rounded-md">Everyone</span>
                   ) : (
                     n.targetGrades.map(tg => (
-                      <span key={tg} className="text-[8px] font-black text-indigo-500 uppercase bg-indigo-50 px-2 py-0.5 rounded-md">Class {tg}</span>
+                      <span key={tg} className="text-[8px] font-black text-indigo-500 uppercase bg-indigo-50 px-2 py-0.5 rounded-md">Grade {tg}</span>
                     ))
                   )}
                </div>
@@ -427,7 +425,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                 className="mb-8 w-full py-6 bg-indigo-50 text-indigo-600 rounded-[2.5rem] flex items-center justify-center gap-4 font-black text-xs hover:bg-indigo-600 hover:text-white transition-all border-4 border-indigo-100 shadow-sm"
               >
                 <i className={`fa-solid ${n.attachment.type === 'PDF' ? 'fa-file-pdf' : 'fa-image'} text-2xl`}></i>
-                {n.attachment.type === 'PDF' ? 'DOWNLOAD PDF' : 'VIEW IMAGE'}
+                {n.attachment.type === 'PDF' ? 'VIEW PDF' : 'VIEW IMAGE'}
               </button>
             )}
 
@@ -436,21 +434,18 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                  <button 
                    onClick={() => startEdit(n)}
                    className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-3xl flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-                   title="Edit Notice"
                  >
                     <i className="fa-solid fa-pen-nib"></i>
                  </button>
                  <button 
                    onClick={() => togglePin(n)}
                    className={`w-14 h-14 rounded-3xl flex items-center justify-center transition-all shadow-sm ${n.isPinned ? 'bg-amber-400 text-white shadow-amber-200' : 'bg-gray-50 text-gray-400 hover:bg-amber-50 hover:text-amber-500'}`}
-                   title="Pin to Top"
                  >
                     <i className="fa-solid fa-thumbtack"></i>
                  </button>
                  <button 
                    onClick={() => setNoticeToDelete({id: n.id, title: n.title})}
                    className="flex-1 bg-rose-50 text-rose-500 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
-                   title="Permanently remove notice"
                  >
                     <i className="fa-solid fa-trash-can"></i> REMOVE
                  </button>
@@ -463,48 +458,44 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
                 <i className="fa-solid fa-wind"></i>
              </div>
              <p className="font-black text-4xl text-indigo-900 uppercase tracking-tighter">Quiet Archive</p>
-             <p className="text-indigo-400 font-bold mt-4 italic text-xl">No matching announcements found in the registry.</p>
+             <p className="text-indigo-400 font-bold mt-4 italic text-xl">No announcements match your search criteria.</p>
           </div>
         )}
       </div>
 
-      {/* Delete Confirmation Overlay */}
+      {/* Delete Confirmation Modal */}
       {noticeToDelete && (
         <div className="fixed inset-0 z-[5000] flex items-center justify-center p-6">
            <div 
-             className="absolute inset-0 bg-[#0a0a0c]/90 backdrop-blur-xl animate-fade-in" 
+             className="absolute inset-0 bg-indigo-950/90 backdrop-blur-xl animate-fade-in" 
              onClick={() => setNoticeToDelete(null)}
            ></div>
            
            <div className="bg-white rounded-[3.5rem] p-12 max-w-md w-full relative z-10 shadow-2xl border-t-[15px] border-rose-500 animate-scale-in flex flex-col items-center text-center">
-              <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-inner animate-shake-slow">
+              <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-inner">
                  <i className="fa-solid fa-trash-can"></i>
               </div>
               
-              <div className="space-y-2 mb-10">
-                 <h2 className="text-3xl font-black text-indigo-950 uppercase tracking-tighter leading-tight">Delete Notice?</h2>
-                 <p className="text-rose-400 font-black text-[10px] uppercase tracking-[0.2em]">Destructive Operation</p>
-              </div>
+              <h2 className="text-3xl font-black text-indigo-950 uppercase tracking-tighter mb-4">Erase Notice?</h2>
 
               <div className="p-6 bg-gray-50 rounded-2xl w-full mb-10 border border-gray-100">
-                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Notice to Erase:</p>
-                 <p className="text-base font-black text-gray-800 line-clamp-2 uppercase">"{noticeToDelete.title}"</p>
+                 <p className="text-base font-black text-gray-800 line-clamp-2 italic">"{noticeToDelete.title}"</p>
               </div>
 
               <p className="text-sm text-gray-500 font-medium leading-relaxed mb-12">
-                 This action is <strong className="text-rose-500 underline">IRREVERSIBLE</strong>. Once deleted, this notice will be erased from all user dashboards instantly.
+                 This action is irreversible. All student and parent dashboards will lose access to this notice immediately.
               </p>
 
               <div className="grid grid-cols-2 gap-4 w-full">
                  <button 
                    onClick={() => setNoticeToDelete(null)}
-                   className="py-5 bg-gray-100 text-gray-500 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:bg-gray-200 transition-all active:scale-95"
+                   className="py-5 bg-gray-100 text-gray-500 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest"
                  >
-                    Keep Notice
+                    Keep
                  </button>
                  <button 
                    onClick={confirmDelete}
-                   className="py-5 bg-rose-500 text-white rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-rose-200 hover:bg-rose-600 transition-all transform hover:scale-105 active:scale-95"
+                   className="py-5 bg-rose-500 text-white rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-rose-200"
                  >
                     Delete Now
                  </button>
@@ -520,8 +511,6 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
         .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         .animate-scale-in { animation: scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        @keyframes shakeSlow { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(5deg); } 75% { transform: rotate(-5deg); } }
-        .animate-shake-slow { animation: shakeSlow 1s infinite ease-in-out; }
       `}</style>
     </div>
   );

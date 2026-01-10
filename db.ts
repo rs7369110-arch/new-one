@@ -25,11 +25,25 @@ const DB_KEYS = {
 
 export const storage = {
   get: <T,>(key: string, defaultValue: T): T => {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : defaultValue;
+    try {
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : defaultValue;
+    } catch (e) {
+      console.error("Storage Retrieval Error:", e);
+      return defaultValue;
+    }
   },
   set: (key: string, value: any) => {
-    localStorage.setItem(key, JSON.stringify(value));
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (e) {
+      console.error("Storage Save Error:", e);
+      if (e instanceof DOMException && (e.code === 22 || e.code === 1014)) {
+        alert("🚨 MEMORY FULL: Mobile storage space for this app is full. Please delete old notices or gallery images to make room.");
+      }
+      return false;
+    }
   },
   clear: (key: string) => {
     localStorage.removeItem(key);
