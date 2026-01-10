@@ -100,7 +100,8 @@ const CustomProfileBuilder: React.FC<CustomProfileBuilderProps> = ({ templates, 
   const deleteRow = (idx: number) => {
     if (!activeTemplateId || !activeTemplate) return;
     const rowData = activeTemplate.data[idx];
-    const hasData = Object.values(rowData).some(val => val.trim() !== '');
+    // Fixed: Added type assertion to allow 'trim()' on unknown value from Object.values
+    const hasData = Object.values(rowData).some(val => (val as string).trim() !== '');
     
     if (hasData && !window.confirm("⚠️ This row has entries. Delete it anyway?")) return;
 
@@ -324,7 +325,7 @@ const CustomProfileBuilder: React.FC<CustomProfileBuilderProps> = ({ templates, 
                 <i className="fa-solid fa-puzzle-piece"></i>
               </div>
               <h3 className="text-3xl font-black text-indigo-900 tracking-tighter uppercase">Blueprint Station</h3>
-              <p className="text-indigo-400 max-w-sm mt-2 font-medium italic">Create a new structure or modify an existing one from the library to start managing data.</p>
+              <p className="text-indigo-400 max-sm mt-2 font-medium italic">Create a new structure or modify an existing one from the library to start managing data.</p>
             </div>
           )}
         </div>
