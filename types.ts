@@ -166,7 +166,14 @@ export interface Notice {
   title: string;
   content: string;
   date: string;
-  category: 'URGENT' | 'GENERAL' | 'EVENT';
+  category: 'EXAM' | 'HOLIDAY' | 'EVENT' | 'FEE' | 'URGENT' | 'GENERAL';
+  targetGrades: string[]; // ['All'] or specific grades like ['1', '10']
+  isPinned?: boolean;
+  attachment?: {
+    data: string;
+    name: string;
+    type: 'IMAGE' | 'PDF';
+  };
 }
 
 export interface Homework {

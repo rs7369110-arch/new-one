@@ -1,174 +1,527 @@
 
-import React, { useState } from 'react';
-import { User, UserRole, Notice } from '../types';
-import { generateSmartNotice } from '../services/gemini';
+import React, { useState, useRef, useMemo } from 'react';
+import { User, UserRole, Notice, Student } from '../types';
 
 interface NoticeBoardProps {
   user: User;
   notices: Notice[];
   setNotices: (notices: Notice[]) => void;
+  students?: Student[]; // Optional: for filtering by user's grade if they are a student
 }
 
-const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices }) => {
+const CATEGORIES = ['ALL', 'URGENT', 'EXAM', 'HOLIDAY', 'FEE', 'EVENT', 'GENERAL'];
+const CLASSES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+
+const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, students }) => {
   const [isAdding, setIsAdding] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [newNotice, setNewNotice] = useState({ title: '', content: '', category: 'GENERAL' as const });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [noticeToDelete, setNoticeToDelete] = useState<{id: string, title: string} | null>(null);
+  
+  const [formData, setFormData] = useState<Partial<Notice>>({
+    title: '',
+    content: '',
+    category: 'GENERAL',
+    targetGrades: ['All'],
+    isPinned: false
+  });
+  
+  const [attachment, setAttachment] = useState<Notice['attachment'] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    const notice: Notice = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: newNotice.title,
-      content: newNotice.content,
-      category: newNotice.category,
-      date: new Date().toLocaleDateString()
-    };
-    setNotices([...notices, notice]);
-    setIsAdding(false);
-    setNewNotice({ title: '', content: '', category: 'GENERAL' });
-  };
+  // Authorization Check
+  const isAdmin = user.role === UserRole.ADMIN || user.role === UserRole.TEACHER;
+  
+  // Find current user's grade if they are a student or parent
+  const currentUserGrade = useMemo(() => {
+    if (user.role === UserRole.STUDENT || user.role === UserRole.PARENT) {
+      // Logic would typically find the linked student's grade
+      // For this implementation, we assume we know their grade or show 'All'
+      return user.studentId ? students?.find(s => s.id === user.studentId)?.grade : null;
+    }
+    return null;
+  }, [user, students]);
 
-  const handleDelete = (id: string, title: string) => {
-    if (user.role !== UserRole.ADMIN) return;
-    const confirmed = window.confirm(`🚨 WARNING: Are you sure you want to PERMANENTLY delete the notice: "${title}"? This action is irreversible and the record will be erased from the Academy Registry.`);
-    if (confirmed) {
-      setNotices(notices.filter(item => item.id !== id));
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const type = file.type.includes('pdf') ? 'PDF' : 'IMAGE';
+      const maxSize = type === 'PDF' ? 5 * 1024 * 1024 : 3 * 1024 * 1024;
+
+      if (file.size > maxSize) {
+        alert(`File too large! Maximum ${type === 'PDF' ? '5MB' : '3MB'} allowed.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachment({
+          data: reader.result as string,
+          name: file.name,
+          type: type as any
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const useAI = async () => {
-    if (!newNotice.title) return alert("Please enter a title for AI to work with.");
-    setIsLoading(true);
-    try {
-      const draft = await generateSmartNotice(newNotice.title);
-      setNewNotice({ ...newNotice, title: draft.title, content: draft.content });
-    } catch (e) {
-      console.error(e);
-      alert("Failed to connect to AI. Please check API Key.");
-    } finally {
-      setIsLoading(false);
+  const toggleGrade = (grade: string) => {
+    setFormData(prev => {
+      let grades = [...(prev.targetGrades || [])];
+      if (grade === 'All') {
+        grades = ['All'];
+      } else {
+        grades = grades.filter(g => g !== 'All');
+        if (grades.includes(grade)) {
+          grades = grades.filter(g => g !== grade);
+          if (grades.length === 0) grades = ['All'];
+        } else {
+          grades.push(grade);
+        }
+      }
+      return { ...prev, targetGrades: grades };
+    });
+  };
+
+  const selectAllGrades = () => {
+    setFormData(prev => {
+      const isAllSelected = prev.targetGrades?.length === CLASSES.length;
+      return { ...prev, targetGrades: isAllSelected ? ['All'] : [...CLASSES] };
+    });
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin) return;
+
+    const dataToSave = {
+      ...formData,
+      attachment: attachment || undefined,
+      targetGrades: formData.targetGrades?.length === 0 ? ['All'] : formData.targetGrades
+    };
+
+    if (editingId) {
+      const updated = notices.map(n => 
+        n.id === editingId ? { ...n, ...dataToSave } : n
+      );
+      setNotices(updated as Notice[]);
+    } else {
+      const newNotice: Notice = {
+        id: "NT-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        date: new Date().toLocaleDateString('en-GB'),
+        ...(dataToSave as Notice)
+      };
+      setNotices([...notices, newNotice]);
+    }
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({ title: '', content: '', category: 'GENERAL', targetGrades: ['All'], isPinned: false });
+    setAttachment(null);
+    setEditingId(null);
+    setIsAdding(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const startEdit = (notice: Notice) => {
+    setEditingId(notice.id);
+    setFormData(notice);
+    setAttachment(notice.attachment || null);
+    setIsAdding(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const confirmDelete = () => {
+    if (!isAdmin || !noticeToDelete) return;
+    const newList = notices.filter(n => n.id !== noticeToDelete.id);
+    setNotices(newList);
+    if (editingId === noticeToDelete.id) resetForm();
+    setNoticeToDelete(null);
+  };
+
+  const togglePin = (notice: Notice) => {
+    if (!isAdmin) return;
+    setNotices(notices.map(n => n.id === notice.id ? { ...n, isPinned: !n.isPinned } : n));
+  };
+
+  const filteredNotices = useMemo(() => {
+    return notices.filter(n => {
+      // Search filter
+      const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           n.content.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Category filter
+      const matchesCat = selectedCategory === 'ALL' || n.category === selectedCategory;
+      
+      // Grade filter (For Student view)
+      let matchesGrade = true;
+      if (currentUserGrade) {
+        matchesGrade = n.targetGrades.includes('All') || n.targetGrades.includes(currentUserGrade);
+      }
+
+      return matchesSearch && matchesCat && matchesGrade;
+    }).sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return 0;
+    });
+  }, [notices, searchQuery, selectedCategory, currentUserGrade]);
+
+  const getCategoryStyles = (cat: string) => {
+    switch (cat) {
+      case 'URGENT': return 'bg-rose-500 text-white';
+      case 'EXAM': return 'bg-indigo-600 text-white';
+      case 'HOLIDAY': return 'bg-amber-500 text-white';
+      case 'FEE': return 'bg-emerald-600 text-white';
+      case 'EVENT': return 'bg-purple-600 text-white';
+      default: return 'bg-slate-500 text-white';
+    }
+  };
+
+  const openAttachment = (data: string) => {
+    const win = window.open();
+    if (win) {
+      win.document.write(
+        `<html><body style="margin:0; background:#111; display:flex; align-items:center; justify-content:center;">
+          <iframe src="${data}" frameborder="0" style="border:0; width:100vw; height:100vh;" allowfullscreen></iframe>
+        </body></html>`
+      );
     }
   };
 
   return (
-    <div className="space-y-8 animate-fade-in pb-20">
-      <div className="flex items-center justify-between">
-        <div>
-           <h1 className="text-3xl font-black text-indigo-900 tracking-tight flex items-center gap-3">
-              <i className="fa-solid fa-bullhorn text-amber-500"></i>
-              Academy News Flash
-           </h1>
-           <p className="text-gray-500 font-medium italic mt-1">Official announcements and urgent updates. 📢</p>
+    <div className="space-y-10 animate-fade-in pb-32">
+      <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 border-b-4 border-indigo-50 pb-10">
+        <div className="space-y-2">
+           <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-indigo-900 text-white rounded-[2rem] flex items-center justify-center text-3xl shadow-2xl">
+                 <i className="fa-solid fa-bullhorn"></i>
+              </div>
+              <div>
+                <h1 className="text-4xl font-black text-indigo-950 tracking-tighter uppercase leading-none">Academy Feed</h1>
+                <p className="text-indigo-400 font-bold text-xs uppercase tracking-[0.4em] mt-2">Official Communications Hub</p>
+              </div>
+           </div>
         </div>
-        {user.role === UserRole.ADMIN && (
-          <button 
-            onClick={() => setIsAdding(!isAdding)}
-            className={`px-8 py-4 rounded-[1.5rem] font-black shadow-lg transition-all flex items-center gap-2 transform hover:scale-105 active:scale-95 ${isAdding ? 'bg-rose-500 text-white' : 'bg-indigo-600 text-white'}`}
+
+        <div className="flex flex-wrap gap-4 items-center">
+           <div className="relative group">
+              <i className="fa-solid fa-magnifying-glass absolute left-5 top-1/2 -translate-y-1/2 text-indigo-300 transition-colors group-focus-within:text-indigo-600"></i>
+              <input 
+                type="text" 
+                className="pl-14 pr-6 py-4 bg-white border-2 border-indigo-50 rounded-2xl outline-none focus:border-indigo-400 w-full sm:w-80 font-bold text-sm shadow-sm transition-all"
+                placeholder="Search announcements..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+           </div>
+
+           {isAdmin && (
+             <button 
+               onClick={() => isAdding ? resetForm() : setIsAdding(true)}
+               className={`px-10 py-5 rounded-[2rem] font-black shadow-2xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 ${isAdding ? 'bg-rose-500 text-white' : 'bg-indigo-900 text-white'}`}
+             >
+                <i className={`fa-solid ${isAdding ? 'fa-xmark' : 'fa-plus'}`}></i>
+                {isAdding ? 'Discard Draft' : 'Post New Notice'}
+             </button>
+           )}
+        </div>
+      </header>
+
+      {/* Category Tabs */}
+      <div className="flex flex-wrap gap-3">
+        {CATEGORIES.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border-2 ${
+              selectedCategory === cat 
+              ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' 
+              : 'bg-white border-indigo-50 text-indigo-300 hover:border-indigo-200 hover:text-indigo-600'
+            }`}
           >
-            <i className={`fa-solid ${isAdding ? 'fa-times' : 'fa-plus'}`}></i>
-            {isAdding ? 'Cancel Post' : 'Post New Notice'}
+            {cat}
           </button>
-        )}
+        ))}
       </div>
 
-      {isAdding && (
-        <form onSubmit={handleAdd} className="bg-white p-10 rounded-[3.5rem] shadow-2xl border-4 border-indigo-50 space-y-8 animate-slide-up relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Notice Title / Subject</label>
-              <div className="relative">
-                <input 
-                  required
-                  className="w-full px-6 py-4 pr-32 rounded-2xl bg-indigo-50/50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black transition-all" 
-                  value={newNotice.title} 
-                  onChange={e => setNewNotice({...newNotice, title: e.target.value})} 
-                  placeholder="e.g. Annual Sports Meet 2024"
-                />
-                <button 
-                    type="button"
-                    disabled={isLoading}
-                    onClick={useAI}
-                    className="absolute right-2 top-2 px-4 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-xl hover:bg-black flex items-center gap-2 transition-all shadow-md"
-                >
-                    <i className="fa-solid fa-wand-magic-sparkles"></i>
-                    {isLoading ? '...' : 'AI Draft'}
-                </button>
+      {isAdding && isAdmin && (
+        <form onSubmit={handleSave} className="bg-white p-12 rounded-[4.5rem] shadow-2xl border-4 border-indigo-50 space-y-10 animate-slide-up relative overflow-hidden">
+           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full -mr-32 -mt-32 opacity-50"></div>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 relative z-10">
+              <div className="space-y-3">
+                 <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em] ml-2">Announcement Title</label>
+                 <input 
+                   required
+                   className="w-full px-8 py-5 rounded-[2.5rem] bg-indigo-50/50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-xl text-indigo-950 shadow-inner"
+                   placeholder="Enter catchy headline..."
+                   value={formData.title}
+                   onChange={e => setFormData({...formData, title: e.target.value})}
+                 />
               </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Category</label>
-              <select 
-                className="w-full px-6 py-4 rounded-2xl bg-indigo-50/50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black transition-all appearance-none"
-                value={newNotice.category}
-                onChange={e => setNewNotice({...newNotice, category: e.target.value as any})}
-              >
-                <option value="GENERAL">General Notice</option>
-                <option value="URGENT">Urgent Announcement</option>
-                <option value="EVENT">Academy Event</option>
-              </select>
-            </div>
-          </div>
-          <div className="space-y-2 relative z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Notice Details</label>
-            <textarea 
-              required
-              rows={4}
-              className="w-full px-8 py-6 rounded-[2rem] bg-indigo-50/50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-medium text-gray-700 shadow-inner" 
-              value={newNotice.content} 
-              onChange={e => setNewNotice({...newNotice, content: e.target.value})}
-              placeholder="Provide complete details about the announcement..."
-            />
-          </div>
-          <div className="flex justify-end relative z-10">
-             <button type="submit" className="px-12 py-5 bg-indigo-900 text-white rounded-[2rem] font-black shadow-2xl hover:bg-black transition-all transform hover:scale-105 active:scale-95">
-               <i className="fa-solid fa-paper-plane mr-2"></i> Publish to Board
-             </button>
-          </div>
+              <div className="space-y-3">
+                 <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em] ml-2">Priority Category</label>
+                 <select 
+                   required
+                   className="w-full px-8 py-5 rounded-[2.5rem] bg-indigo-50/50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-indigo-900 shadow-inner appearance-none"
+                   value={formData.category}
+                   onChange={e => setFormData({...formData, category: e.target.value as any})}
+                 >
+                   {CATEGORIES.filter(c => c !== 'ALL').map(c => <option key={c} value={c}>{c}</option>)}
+                 </select>
+              </div>
+           </div>
+
+           <div className="space-y-3 relative z-10">
+              <div className="flex justify-between items-center px-2">
+                 <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em]">Target Class Recipients</label>
+                 <button type="button" onClick={selectAllGrades} className="text-[9px] font-black text-indigo-600 uppercase hover:underline">
+                    {formData.targetGrades?.length === CLASSES.length ? 'Deselect Classes' : 'Select All Classes'}
+                 </button>
+              </div>
+              <div className="flex flex-wrap gap-2 p-6 bg-gray-50 rounded-[2.5rem] border-2 border-indigo-100 shadow-inner">
+                 <button 
+                   type="button"
+                   onClick={() => toggleGrade('All')}
+                   className={`px-5 py-3 rounded-xl font-black text-[10px] border transition-all ${
+                    formData.targetGrades?.includes('All') 
+                    ? 'bg-indigo-900 border-indigo-900 text-white shadow-lg' 
+                    : 'bg-white border-indigo-200 text-indigo-400 hover:border-indigo-500'
+                   }`}
+                 >
+                    SCHOOL-WIDE
+                 </button>
+                 <div className="w-[2px] h-10 bg-indigo-100 mx-2"></div>
+                 {CLASSES.map(cls => (
+                   <button 
+                     key={cls}
+                     type="button"
+                     onClick={() => toggleGrade(cls)}
+                     className={`px-5 py-3 rounded-xl font-black text-[10px] border transition-all ${
+                      formData.targetGrades?.includes(cls) 
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' 
+                      : 'bg-white border-indigo-200 text-indigo-400 hover:border-indigo-500'
+                     }`}
+                   >
+                      CLASS {cls}
+                   </button>
+                 ))}
+              </div>
+           </div>
+
+           <div className="space-y-3 relative z-10">
+              <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em] ml-2">Content Details</label>
+              <textarea 
+                required
+                rows={5}
+                className="w-full px-10 py-8 rounded-[3rem] bg-indigo-50/50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-medium text-gray-700 shadow-inner text-lg leading-relaxed"
+                placeholder="Compose your message to the students and parents..."
+                value={formData.content}
+                onChange={e => setFormData({...formData, content: e.target.value})}
+              />
+           </div>
+
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 relative z-10">
+              <div className="space-y-3">
+                 <label className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.4em] ml-2">Media Attachment (PDF/Image)</label>
+                 <div className="flex flex-wrap items-center gap-6 p-6 bg-gray-50 rounded-[2.5rem] border-4 border-dashed border-indigo-100">
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-10 py-5 bg-white border-2 border-indigo-600 rounded-[1.5rem] text-indigo-600 font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-xl active:scale-95"
+                    >
+                       <i className="fa-solid fa-cloud-arrow-up mr-2"></i>
+                       {attachment ? 'Swap File' : 'Pick Document'}
+                    </button>
+                    {attachment && (
+                      <div className="flex items-center gap-4 bg-emerald-50 text-emerald-600 px-6 py-4 rounded-2xl border border-emerald-100 animate-fade-in">
+                         <i className={`fa-solid ${attachment.type === 'PDF' ? 'fa-file-pdf' : 'fa-image'}`}></i>
+                         <span className="text-[10px] font-black truncate max-w-[150px]">{attachment.name}</span>
+                         <button type="button" onClick={() => setAttachment(null)} className="text-rose-500 hover:scale-125 transition-transform" title="Remove Attachment">
+                            <i className="fa-solid fa-circle-xmark"></i>
+                         </button>
+                      </div>
+                    )}
+                 </div>
+                 <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,application/pdf" />
+              </div>
+
+              <div className="flex items-center gap-6 pt-10">
+                 <button 
+                   type="button"
+                   onClick={() => setFormData({...formData, isPinned: !formData.isPinned})}
+                   className={`flex-1 py-6 rounded-[2.5rem] font-black text-[11px] uppercase tracking-widest transition-all flex items-center justify-center gap-4 ${
+                     formData.isPinned ? 'bg-amber-100 text-amber-600 border-2 border-amber-300 shadow-inner' : 'bg-gray-100 text-gray-400 border-2 border-transparent'
+                   }`}
+                 >
+                    <i className="fa-solid fa-thumbtack"></i>
+                    {formData.isPinned ? 'Pinned Important' : 'Normal Priority'}
+                 </button>
+                 
+                 {editingId && (
+                   <button 
+                     type="button"
+                     onClick={() => setNoticeToDelete({id: editingId, title: formData.title || 'this notice'})}
+                     className="w-20 h-20 bg-rose-50 text-rose-500 rounded-[2rem] border-2 border-rose-100 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center text-2xl shadow-lg"
+                     title="Delete this notice permanently"
+                   >
+                      <i className="fa-solid fa-trash-can"></i>
+                   </button>
+                 )}
+              </div>
+           </div>
+
+           <div className="flex justify-end gap-6 pt-6 relative z-10">
+              <button type="button" onClick={resetForm} className="px-12 py-5 bg-gray-100 text-gray-500 rounded-[2rem] font-black uppercase text-xs tracking-widest">Cancel</button>
+              <button type="submit" className="px-20 py-5 bg-indigo-950 text-white rounded-[2rem] font-black shadow-2xl hover:bg-black transition-all text-xs uppercase tracking-[0.2em]">
+                {editingId ? 'Save Changes' : 'Broadcast Notice'}
+              </button>
+           </div>
         </form>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {notices.length > 0 ? notices.slice().reverse().map(n => (
-          <div key={n.id} className="bg-white p-8 rounded-[3rem] shadow-xl border border-gray-100 hover:shadow-2xl transition-all relative overflow-hidden group border-t-8 flex flex-col min-h-[300px]" style={{ borderTopColor: n.category === 'URGENT' ? '#f43f5e' : n.category === 'EVENT' ? '#f59e0b' : '#4f46e5' }}>
-            <div className={`absolute top-0 right-0 px-4 py-1.5 text-[9px] font-black tracking-widest text-white rounded-bl-2xl ${
-              n.category === 'URGENT' ? 'bg-rose-500' : n.category === 'EVENT' ? 'bg-amber-500' : 'bg-indigo-500'
-            }`}>
-              {n.category}
-            </div>
-            <div className="text-[10px] font-black text-indigo-300 mb-3 tracking-widest">{n.date}</div>
-            <h3 className="text-xl font-black text-indigo-950 mb-4 group-hover:text-indigo-600 transition-colors leading-tight">{n.title}</h3>
-            <p className="text-gray-500 text-sm font-medium leading-relaxed mb-6 flex-1">{n.content}</p>
+      {/* Feed Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
+        {filteredNotices.length > 0 ? filteredNotices.map(n => (
+          <div key={n.id} className="bg-white p-10 rounded-[4.5rem] shadow-2xl border-b-[16px] flex flex-col min-h-[520px] transition-all hover:shadow-indigo-900/10 hover:-translate-y-2 relative group" style={{ borderBottomColor: n.category === 'URGENT' ? '#f43f5e' : n.category === 'EXAM' ? '#4f46e5' : n.category === 'HOLIDAY' ? '#f59e0b' : n.category === 'FEE' ? '#10b981' : '#64748b' }}>
             
-            {user.role === UserRole.ADMIN && (
-              <div className="mt-auto pt-6 border-t border-gray-50 flex justify-between items-center">
-                 <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest flex items-center gap-1">
-                    <i className="fa-solid fa-shield-check"></i> Registry Record
-                 </span>
+            {n.isPinned && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-white px-8 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.3em] shadow-xl z-20 flex items-center gap-3">
+                 <i className="fa-solid fa-thumbtack"></i> Pinned Official
+              </div>
+            )}
+
+            <div className="flex justify-between items-start mb-8">
+               <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">{n.date}</span>
+                  <p className="text-[8px] font-black text-gray-300 uppercase mt-0.5">REF: {n.id}</p>
+               </div>
+               <span className={`px-5 py-2 rounded-full text-[10px] font-black shadow-xl uppercase tracking-widest ${getCategoryStyles(n.category)}`}>
+                  {n.category}
+               </span>
+            </div>
+
+            <div className="mb-6">
+               <h3 className="text-3xl font-black text-indigo-950 leading-tight group-hover:text-indigo-600 transition-colors uppercase line-clamp-2">{n.title}</h3>
+               <div className="flex flex-wrap gap-1 mt-3">
+                  {n.targetGrades.includes('All') ? (
+                    <span className="text-[8px] font-black text-indigo-400 uppercase bg-indigo-50 px-2 py-0.5 rounded-md">School-Wide</span>
+                  ) : (
+                    n.targetGrades.map(tg => (
+                      <span key={tg} className="text-[8px] font-black text-indigo-500 uppercase bg-indigo-50 px-2 py-0.5 rounded-md">Class {tg}</span>
+                    ))
+                  )}
+               </div>
+            </div>
+            
+            <div className="flex-1 bg-gray-50/80 p-8 rounded-[3rem] border border-indigo-50 mb-8 overflow-y-auto custom-scrollbar">
+               <p className="text-gray-600 text-base font-medium whitespace-pre-wrap leading-relaxed italic">"{n.content}"</p>
+            </div>
+
+            {n.attachment && (
+              <button 
+                onClick={() => openAttachment(n.attachment!.data)}
+                className="mb-8 w-full py-6 bg-indigo-50 text-indigo-600 rounded-[2.5rem] flex items-center justify-center gap-4 font-black text-xs hover:bg-indigo-600 hover:text-white transition-all border-4 border-indigo-100 shadow-sm"
+              >
+                <i className={`fa-solid ${n.attachment.type === 'PDF' ? 'fa-file-pdf' : 'fa-image'} text-2xl`}></i>
+                {n.attachment.type === 'PDF' ? 'DOWNLOAD PDF' : 'VIEW IMAGE'}
+              </button>
+            )}
+
+            {isAdmin && (
+              <div className="pt-8 border-t border-gray-100 flex gap-4">
                  <button 
-                    onClick={() => handleDelete(n.id, n.title)}
-                    className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                    title="Delete Entry"
-                  >
-                    <i className="fa-solid fa-trash-can text-sm"></i>
-                  </button>
+                   onClick={() => startEdit(n)}
+                   className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-3xl flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                   title="Edit Notice"
+                 >
+                    <i className="fa-solid fa-pen-nib"></i>
+                 </button>
+                 <button 
+                   onClick={() => togglePin(n)}
+                   className={`w-14 h-14 rounded-3xl flex items-center justify-center transition-all shadow-sm ${n.isPinned ? 'bg-amber-400 text-white shadow-amber-200' : 'bg-gray-50 text-gray-400 hover:bg-amber-50 hover:text-amber-500'}`}
+                   title="Pin to Top"
+                 >
+                    <i className="fa-solid fa-thumbtack"></i>
+                 </button>
+                 <button 
+                   onClick={() => setNoticeToDelete({id: n.id, title: n.title})}
+                   className="flex-1 bg-rose-50 text-rose-500 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all shadow-sm flex items-center justify-center gap-2"
+                   title="Permanently remove notice"
+                 >
+                    <i className="fa-solid fa-trash-can"></i> REMOVE
+                 </button>
               </div>
             )}
           </div>
         )) : (
-          <div className="col-span-full py-40 text-center bg-white/50 rounded-[4rem] border-4 border-dashed border-gray-200">
-             <div className="w-28 h-28 bg-indigo-50 text-indigo-100 rounded-full flex items-center justify-center text-6xl mx-auto mb-8">
-               <i className="fa-solid fa-bullhorn animate-pulse"></i>
+          <div className="col-span-full py-48 text-center bg-white rounded-[6rem] border-8 border-dashed border-indigo-50">
+             <div className="w-40 h-40 bg-indigo-50 text-indigo-200 rounded-full flex items-center justify-center text-8xl mx-auto mb-10 animate-pulse">
+                <i className="fa-solid fa-wind"></i>
              </div>
-             <p className="text-indigo-900 font-black text-2xl tracking-tighter">No Current Announcements</p>
-             <p className="text-indigo-400 font-bold mt-2 italic max-w-sm mx-auto">The notice board is currently clean. All students and staff are informed.</p>
+             <p className="font-black text-4xl text-indigo-900 uppercase tracking-tighter">Quiet Archive</p>
+             <p className="text-indigo-400 font-bold mt-4 italic text-xl">No matching announcements found in the registry.</p>
           </div>
         )}
       </div>
 
+      {/* Delete Confirmation Overlay */}
+      {noticeToDelete && (
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center p-6">
+           <div 
+             className="absolute inset-0 bg-[#0a0a0c]/90 backdrop-blur-xl animate-fade-in" 
+             onClick={() => setNoticeToDelete(null)}
+           ></div>
+           
+           <div className="bg-white rounded-[3.5rem] p-12 max-w-md w-full relative z-10 shadow-2xl border-t-[15px] border-rose-500 animate-scale-in flex flex-col items-center text-center">
+              <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-inner animate-shake-slow">
+                 <i className="fa-solid fa-trash-can"></i>
+              </div>
+              
+              <div className="space-y-2 mb-10">
+                 <h2 className="text-3xl font-black text-indigo-950 uppercase tracking-tighter leading-tight">Delete Notice?</h2>
+                 <p className="text-rose-400 font-black text-[10px] uppercase tracking-[0.2em]">Destructive Operation</p>
+              </div>
+
+              <div className="p-6 bg-gray-50 rounded-2xl w-full mb-10 border border-gray-100">
+                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Notice to Erase:</p>
+                 <p className="text-base font-black text-gray-800 line-clamp-2 uppercase">"{noticeToDelete.title}"</p>
+              </div>
+
+              <p className="text-sm text-gray-500 font-medium leading-relaxed mb-12">
+                 This action is <strong className="text-rose-500 underline">IRREVERSIBLE</strong>. Once deleted, this notice will be erased from all user dashboards instantly.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4 w-full">
+                 <button 
+                   onClick={() => setNoticeToDelete(null)}
+                   className="py-5 bg-gray-100 text-gray-500 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:bg-gray-200 transition-all active:scale-95"
+                 >
+                    Keep Notice
+                 </button>
+                 <button 
+                   onClick={confirmDelete}
+                   className="py-5 bg-rose-500 text-white rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-rose-200 hover:bg-rose-600 transition-all transform hover:scale-105 active:scale-95"
+                 >
+                    Delete Now
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
       <style>{`
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 10px; }
+        @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-scale-in { animation: scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes shakeSlow { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(5deg); } 75% { transform: rotate(-5deg); } }
+        .animate-shake-slow { animation: shakeSlow 1s infinite ease-in-out; }
       `}</style>
     </div>
   );

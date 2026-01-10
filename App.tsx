@@ -107,7 +107,7 @@ const App: React.FC = () => {
     setLastViewed(newStamps);
     storage.set(DB_KEYS.LAST_VIEWED, newStamps);
     setActiveTab(tab);
-    setIsSidebarOpen(false); // Close sidebar on mobile after selection
+    setIsSidebarOpen(false);
   };
 
   const toggleLanguage = () => {
@@ -129,7 +129,7 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     storage.set(DB_KEYS.USER, user);
-    triggerNotification('Access Granted', `Welcome back, System Operator ${user.name}!`, 'success');
+    triggerNotification('Access Granted', `Welcome back, ${user.name}!`, 'success');
   };
 
   const handleLogout = () => {
@@ -143,91 +143,32 @@ const App: React.FC = () => {
     triggerNotification('System Theme', `${!isDarkMode ? 'Dark' : 'Light'} UI Profile applied.`, 'info');
   };
 
-  const updateCustomTemplates = (templates: CustomProfileTemplate[]) => {
-    setCustomTemplates(templates);
-    storage.set(DB_KEYS.CUSTOM_TEMPLATES, templates);
-  };
-
-  const updateTeachers = (newTeachers: TeacherAssignment[]) => {
-    setTeachers(newTeachers);
-    storage.set(DB_KEYS.TEACHERS, newTeachers);
-  };
-
-  const updateFoodChart = (newFoodChart: FoodItem[]) => {
-    setFoodChart(newFoodChart);
-    storage.set(DB_KEYS.FOOD_CHART, newFoodChart);
-  };
-
-  const updateMarks = (newMarks: MarksRecord[]) => {
-    setMarks(newMarks);
-    storage.set(DB_KEYS.MARKS, newMarks);
-  };
-
-  const updateAvailableSubjects = (newSubjects: string[]) => {
-    setAvailableSubjects(newSubjects);
-    storage.set(DB_KEYS.SUBJECT_LIST, newSubjects);
-  };
-
-  const updateCurriculum = (newItems: CurriculumItem[]) => {
-    setCurriculum(newItems);
-    storage.set(DB_KEYS.CURRICULUM, newItems);
-  };
-
-  const updateMessages = (newMsgs: SchoolMessage[]) => {
-    const isNew = newMsgs.length > messages.length;
-    setMessages(newMsgs);
-    storage.set(DB_KEYS.MESSAGES, newMsgs);
-    if (isNew) triggerNotification('New Broadcast', 'A new message has been published in the room.', 'broadcast');
-  };
-
-  const updateGallery = (newItems: GalleryItem[]) => {
-    const isNew = newItems.length > gallery.length;
-    setGallery(newItems);
-    storage.set(DB_KEYS.GALLERY, newItems);
-    if (isNew) triggerNotification('Memory Wall', 'New media has been added to the academy gallery.', 'gallery');
-  };
-
-  const updateStudents = (newStudents: Student[]) => {
-    setStudents(newStudents);
-    storage.set(DB_KEYS.STUDENTS, newStudents);
-  };
-
-  const updateLeaves = (newLeaves: LeaveRequest[]) => {
-    setLeaves(newLeaves);
-    storage.set(DB_KEYS.LEAVES, newLeaves);
-  };
-
-  const updateAttendance = (a: AttendanceRecord[]) => {
-    setAttendance(a);
-    storage.set(DB_KEYS.ATTENDANCE, a);
-  };
-
   const updateNotices = (n: Notice[]) => {
-    const isNew = n.length > notices.length;
-    setNotices(n); 
-    storage.set(DB_KEYS.NOTICES, n); 
-    if (isNew) triggerNotification('Official Notice', 'A naya notice board par post kiya gaya hai.', 'notice');
+    setNotices(prev => {
+      storage.set(DB_KEYS.NOTICES, n);
+      if (n.length > prev.length) {
+        triggerNotification('Notice Board', 'New official notice has been posted.', 'notice');
+      }
+      return [...n];
+    });
   };
 
-  const updateHomework = (h: Homework[]) => {
-    setHomeworks(h); 
-    storage.set(DB_KEYS.HOMEWORK, h); 
-  };
-
-  const updateFees = (s: Student[]) => {
-    setStudents(s); 
-    storage.set(DB_KEYS.STUDENTS, s); 
-  };
-
-  const updateFeeStructures = (structures: FeeStructure[]) => {
-    setFeeStructures(structures);
-    storage.set(DB_KEYS.FEE_STRUCTURES, structures);
-  };
-
-  const updateFeeTransactions = (transactions: FeeTransaction[]) => {
-    setFeeTransactions(transactions);
-    storage.set(DB_KEYS.FEE_TRANSACTIONS, transactions);
-  };
+  const updateStudents = (newStudents: Student[]) => { setStudents(newStudents); storage.set(DB_KEYS.STUDENTS, newStudents); };
+  const updateTeachers = (newTeachers: TeacherAssignment[]) => { setTeachers(newTeachers); storage.set(DB_KEYS.TEACHERS, newTeachers); };
+  const updateFoodChart = (newFoodChart: FoodItem[]) => { setFoodChart(newFoodChart); storage.set(DB_KEYS.FOOD_CHART, newFoodChart); };
+  const updateMarks = (newMarks: MarksRecord[]) => { setMarks(newMarks); storage.set(DB_KEYS.MARKS, newMarks); };
+  const updateAvailableSubjects = (newSubjects: string[]) => { setAvailableSubjects(newSubjects); storage.set(DB_KEYS.SUBJECT_LIST, newSubjects); };
+  const updateCurriculum = (newItems: CurriculumItem[]) => { setCurriculum(newItems); storage.set(DB_KEYS.CURRICULUM, newItems); };
+  const updateMessages = (newMsgs: SchoolMessage[]) => { setMessages(newMsgs); storage.set(DB_KEYS.MESSAGES, newMsgs); };
+  const updateGallery = (newItems: GalleryItem[]) => { setGallery(newItems); storage.set(DB_KEYS.GALLERY, newItems); };
+  const updateGalleryCallback = (items: GalleryItem[]) => { setGallery(items); storage.set(DB_KEYS.GALLERY, items); };
+  const updateLeaves = (newLeaves: LeaveRequest[]) => { setLeaves(newLeaves); storage.set(DB_KEYS.LEAVES, newLeaves); };
+  const updateAttendance = (a: AttendanceRecord[]) => { setAttendance(a); storage.set(DB_KEYS.ATTENDANCE, a); };
+  const updateHomework = (h: Homework[]) => { setHomeworks(h); storage.set(DB_KEYS.HOMEWORK, h); };
+  const updateFees = (s: Student[]) => { setStudents(s); storage.set(DB_KEYS.STUDENTS, s); };
+  const updateFeeStructures = (structures: FeeStructure[]) => { setFeeStructures(structures); storage.set(DB_KEYS.FEE_STRUCTURES, structures); };
+  const updateFeeTransactions = (transactions: FeeTransaction[]) => { setFeeTransactions(transactions); storage.set(DB_KEYS.FEE_TRANSACTIONS, transactions); };
+  const updateCustomTemplates = (templates: CustomProfileTemplate[]) => { setCustomTemplates(templates); storage.set(DB_KEYS.CUSTOM_TEMPLATES, templates); };
 
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
@@ -235,60 +176,28 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard 
-          user={currentUser} 
-          students={students} 
-          notices={notices} 
-          homeworks={homeworks} 
-          attendance={attendance} 
-          teachers={teachers}
-          onUpdateTeachers={updateTeachers}
-          isDarkMode={isDarkMode}
-          lang={currentLang}
-        />;
-      case 'fee-reports':
-        return <FeeReports students={students} transactions={feeTransactions} />;
-      case 'custom-builder':
-        return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={students} />;
-      case 'leaves':
-        return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} />;
-      case 'messages':
-        return <MessageManager user={currentUser} messages={messages} onUpdateMessages={updateMessages} />;
-      case 'gallery':
-        return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} isDarkMode={isDarkMode} />;
-      case 'activity':
-        return currentUser.role === UserRole.ADMIN ? <ActivityReport activities={activities} onClearLog={() => { setActivities([]); storage.set(DB_KEYS.ACTIVITY_LOG, []); triggerNotification('Logs Cleared', 'System audit history purged.', 'info'); }} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
-      case 'students':
-        return currentUser.role === UserRole.ADMIN ? <StudentManagement students={students} setStudents={updateStudents} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
-      case 'student-reports':
-        return currentUser.role === UserRole.ADMIN ? <StudentReports students={students} attendance={attendance} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
-      case 'exam-entry':
-        return <ExamEntry user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
-      case 'teachers':
-        return currentUser.role === UserRole.ADMIN ? <TeacherManagement teachers={teachers} setTeachers={updateTeachers} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
-      case 'food':
-        return <FoodChart user={currentUser} foodChart={foodChart} onUpdateFoodChart={updateFoodChart} />;
-      case 'curriculum':
-        return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} />;
-      case 'marksheet':
-        return <MarksheetManager user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} />;
-      case 'certs':
-        return <CertificateHub students={students} />;
-      case 'attendance':
-        return <Attendance user={currentUser} students={students} attendance={attendance} setAttendance={updateAttendance} />;
-      case 'notices':
-        return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} />;
-      case 'homework':
-        return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} />;
-      case 'fees':
-        return <FeesManager user={currentUser} students={students} setStudents={updateFees} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} />;
-      case 'fees-setup':
-        return currentUser.role === UserRole.ADMIN ? <FeesManager user={currentUser} students={students} setStudents={updateFees} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
-      case 'icards':
-        return currentUser.role === UserRole.ADMIN ? <ICardGenerator students={students} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
-      default:
-        return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} />;
+      case 'dashboard': return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} />;
+      case 'fee-reports': return <FeeReports students={students} transactions={feeTransactions} />;
+      case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={students} />;
+      case 'leaves': return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} />;
+      case 'messages': return <MessageManager user={currentUser} messages={messages} onUpdateMessages={updateMessages} />;
+      case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGalleryCallback} isDarkMode={isDarkMode} />;
+      case 'activity': return currentUser.role === UserRole.ADMIN ? <ActivityReport activities={activities} onClearLog={() => { setActivities([]); storage.set(DB_KEYS.ACTIVITY_LOG, []); }} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+      case 'students': return currentUser.role === UserRole.ADMIN ? <StudentManagement students={students} setStudents={updateStudents} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+      case 'student-reports': return currentUser.role === UserRole.ADMIN ? <StudentReports students={students} attendance={attendance} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+      case 'exam-entry': return <ExamEntry user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
+      case 'teachers': return currentUser.role === UserRole.ADMIN ? <TeacherManagement teachers={teachers} setTeachers={updateTeachers} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+      case 'food': return <FoodChart user={currentUser} foodChart={foodChart} onUpdateFoodChart={updateFoodChart} />;
+      case 'curriculum': return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} />;
+      case 'marksheet': return <MarksheetManager user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} />;
+      case 'certs': return <CertificateHub students={students} />;
+      case 'attendance': return <Attendance user={currentUser} students={students} attendance={attendance} setAttendance={updateAttendance} />;
+      case 'notices': return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} students={students} />;
+      case 'homework': return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} />;
+      case 'fees': return <FeesManager user={currentUser} students={students} setStudents={updateFees} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} />;
+      case 'fees-setup': return currentUser.role === UserRole.ADMIN ? <FeesManager user={currentUser} students={students} setStudents={updateFees} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+      case 'icards': return currentUser.role === UserRole.ADMIN ? <ICardGenerator students={students} /> : <div className="p-8 text-rose-500 font-black">UNAUTHORIZED ACCESS</div>;
+      default: return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} />;
     }
   };
 
@@ -332,43 +241,19 @@ const App: React.FC = () => {
       <div className={`md:hidden flex items-center justify-between px-6 py-4 sticky top-0 z-[2000] border-b backdrop-blur-xl ${
         isDarkMode ? 'bg-[#0a0a0c]/80 border-white/5' : 'bg-white/80 border-slate-100'
       }`}>
-        <button 
-          onClick={() => setIsSidebarOpen(true)}
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-            isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
-          }`}
-        >
+        <button onClick={() => setIsSidebarOpen(true)} className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
           <i className="fa-solid fa-bars-staggered text-xl"></i>
         </button>
         <div className="flex items-center gap-2">
            <Logo size="sm" />
            <span className={`font-black text-lg tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>DIGITAL EDUCATION</span>
         </div>
-        <button 
-           onClick={toggleTheme}
-           className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-             isDarkMode ? 'bg-amber-500/10 text-amber-500' : 'bg-amber text-amber-600'
-           }`}
-        >
+        <button onClick={toggleTheme} className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isDarkMode ? 'bg-amber-500/10 text-amber-500' : 'bg-amber text-amber-600'}`}>
            <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
         </button>
       </div>
 
-      <Sidebar 
-        role={currentUser.role} 
-        activeTab={activeTab} 
-        setActiveTab={updateViewedStamp} 
-        onLogout={handleLogout} 
-        userName={currentUser.name}
-        isDarkMode={isDarkMode}
-        toggleTheme={toggleTheme}
-        /* Call getUnreadCounts to fix the "Cannot find name 'unreadCounts'" error */
-        unreadCounts={getUnreadCounts()}
-        currentLang={currentLang}
-        toggleLanguage={toggleLanguage}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      />
+      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={handleLogout} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={toggleTheme} unreadCounts={getUnreadCounts()} currentLang={currentLang} toggleLanguage={toggleLanguage} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
       <main className="flex-1 overflow-y-auto p-4 md:p-12 relative z-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto">
@@ -377,15 +262,10 @@ const App: React.FC = () => {
       </main>
 
       <style>{`
-        @keyframes notifIn {
-          from { transform: translateX(120%) scale(0.9); opacity: 0; }
-          to { transform: translateX(0) scale(1); opacity: 1; }
-        }
+        @keyframes notifIn { from { transform: translateX(120%) scale(0.9); opacity: 0; } to { transform: translateX(0) scale(1); opacity: 1; } }
         .animate-notif-in { animation: notifIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}; border-radius: 20px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDarkMode ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)'}; }
       `}</style>
     </div>
   );
