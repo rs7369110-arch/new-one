@@ -8,8 +8,7 @@ export enum UserRole {
 
 export enum Language {
   EN = 'EN',
-  GU = 'GU',
-  HI = 'HI'
+  GU = 'GU'
 }
 
 export enum PaymentMode {
@@ -34,7 +33,38 @@ export interface User {
   role: UserRole;
   email: string;
   password?: string;
-  studentId?: string;
+  studentId?: string; // For parents/students to link to their records
+}
+
+export interface CustomProfileTemplate {
+  id: string;
+  name: string;
+  columns: string[];
+  data: Array<Record<string, string>>;
+  createdAt: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  startDate: string;
+  endDate: string;
+  type: 'Sick' | 'Casual' | 'Emergency' | 'Duty';
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  appliedDate: string;
+  adminRemarks?: string;
+}
+
+export interface AdminActivity {
+  id: string;
+  adminName: string;
+  actionType: 'CREATE' | 'UPDATE' | 'DELETE' | 'PAYMENT' | 'LEAVE_DECISION';
+  module: string;
+  target: string;
+  timestamp: string;
+  details?: string;
 }
 
 export interface Student {
@@ -56,6 +86,73 @@ export interface Student {
   uidNo?: string;
   panNo?: string;
   address?: string;
+}
+
+export interface TeacherAssignment {
+  id: string;
+  teacherName: string;
+  subject: string;
+  grade: string;
+  phone?: string;
+  photo?: string;
+}
+
+export interface FoodItem {
+  day: string;
+  breakfast: string;
+  breakfastPrice: number;
+  lunch: string;
+  lunchPrice: number;
+}
+
+export interface MarksRecord {
+  id: string;
+  studentId: string;
+  term: string;
+  subjects: {
+    [key: string]: {
+      theory: number;
+      practical: number;
+      total: number;
+      isLocked?: boolean;
+    };
+  };
+  remarks: string;
+  date: string;
+}
+
+export interface CurriculumItem {
+  id: string;
+  grade: string;
+  subject: string;
+  title: string;
+  fileData: string;
+  fileType: string;
+  fileName: string;
+  date: string;
+}
+
+export interface GalleryItem {
+  id: string;
+  type: 'IMAGE' | 'VIDEO';
+  grade: string;
+  title: string;
+  description: string;
+  url: string;
+  date: string;
+}
+
+export interface SchoolMessage {
+  id: string;
+  senderName: string;
+  text: string;
+  date: string;
+  attachment?: {
+    data: string;
+    name: string;
+    type: string;
+  };
+  targetGrade: 'All' | string;
 }
 
 export interface AttendanceRecord {
@@ -81,111 +178,9 @@ export interface Homework {
   grade: string;
 }
 
-export interface TeacherAssignment {
-  id: string;
-  teacherName: string;
-  subject: string;
-  grade: string;
-  phone?: string;
-  photo?: string;
-}
-
 export interface FeeStructure {
   grade: string;
   tuitionFee: number;
   transportFee: number;
   examFee: number;
-}
-
-export interface MarksRecord {
-  id: string;
-  studentId: string;
-  term: string;
-  subjects: {
-    [key: string]: {
-      theory: number;
-      practical: number;
-      total: number;
-      isLocked?: boolean;
-    };
-  };
-  remarks: string;
-  date: string;
-}
-
-export interface FoodItem {
-  day: string;
-  breakfast: string;
-  breakfastPrice: number;
-  lunch: string;
-  lunchPrice: number;
-}
-
-export interface SchoolMessage {
-  id: string;
-  senderName: string;
-  text: string;
-  date: string;
-  attachment?: {
-    data: string;
-    name: string;
-    type: string;
-  };
-  targetGrade: 'All' | string;
-}
-
-export interface GalleryItem {
-  id: string;
-  type: 'IMAGE' | 'VIDEO';
-  grade: string;
-  title: string;
-  description: string;
-  url: string;
-  date: string;
-}
-
-// Added missing interface for Curriculum Management
-export interface CurriculumItem {
-  id: string;
-  grade: string;
-  subject: string;
-  title: string;
-  fileData: string;
-  fileType: string;
-  fileName: string;
-  date: string;
-}
-
-// Added missing interface for System Audit Logs
-export interface AdminActivity {
-  id: string;
-  timestamp: string;
-  adminName: string;
-  actionType: 'CREATE' | 'UPDATE' | 'DELETE' | 'PAYMENT' | string;
-  module: string;
-  target: string;
-  details?: string;
-}
-
-// Added missing interface for Leave Requests
-export interface LeaveRequest {
-  id: string;
-  teacherId: string;
-  teacherName: string;
-  type: 'Casual' | 'Sick' | 'Emergency' | 'Duty' | string;
-  reason: string;
-  startDate: string;
-  endDate: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  appliedDate: string;
-  adminRemarks?: string;
-}
-
-// Added missing interface for Custom Profile Blueprints
-export interface CustomProfileTemplate {
-  id: string;
-  name: string;
-  columns: string[];
-  data: Record<string, string>[];
-  createdAt: string;
 }

@@ -15,13 +15,9 @@ interface MarksheetManagerProps {
 
 declare var html2pdf: any;
 
-const CONFIG_KEYS = {
+const SIGN_KEYS = {
   PRINCIPAL: 'digital_sign_principal',
-  TEACHER: 'digital_sign_teacher',
-  CUSTOM_LOGO: 'digital_marksheet_logo',
-  CUSTOM_BG: 'digital_marksheet_bg',
-  LOGO_SCALE: 'digital_marksheet_logo_scale',
-  BG_OPACITY: 'digital_marksheet_bg_opacity'
+  TEACHER: 'digital_sign_teacher'
 };
 
 const MarksheetManager: React.FC<MarksheetManagerProps> = ({ 
@@ -42,20 +38,15 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
   const [previewRecord, setPreviewRecord] = useState<MarksRecord | null>(null);
   const [subjectMarks, setSubjectMarks] = useState<{ [key: string]: { theory: number; practical: number } }>({});
   
-  // Branding & Signature States
-  const [principalSign, setPrincipalSign] = useState<string>(storage.get(CONFIG_KEYS.PRINCIPAL, ''));
-  const [teacherSign, setTeacherSign] = useState<string>(storage.get(CONFIG_KEYS.TEACHER, ''));
-  const [customLogo, setCustomLogo] = useState<string>(storage.get(CONFIG_KEYS.CUSTOM_LOGO, ''));
-  const [customBg, setCustomBg] = useState<string>(storage.get(CONFIG_KEYS.CUSTOM_BG, ''));
-  const [logoScale, setLogoScale] = useState<number>(storage.get(CONFIG_KEYS.LOGO_SCALE, 100));
-  const [bgOpacity, setBgOpacity] = useState<number>(storage.get(CONFIG_KEYS.BG_OPACITY, 5));
+  // Signature States
+  const [principalSign, setPrincipalSign] = useState<string>(storage.get(SIGN_KEYS.PRINCIPAL, ''));
+  const [teacherSign, setTeacherSign] = useState<string>(storage.get(SIGN_KEYS.TEACHER, ''));
   
   const printableRef = useRef<HTMLDivElement>(null);
   const principalSignInputRef = useRef<HTMLInputElement>(null);
   const teacherSignInputRef = useRef<HTMLInputElement>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const bgInputRef = useRef<HTMLInputElement>(null);
 
+  // CRITICAL: Automatic Sync Logic
   useEffect(() => {
     if (selectedStudentId && term) {
       const existingRecord = marks.find(m => m.studentId === selectedStudentId && m.term === term);
@@ -82,14 +73,21 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
     }
   }, [selectedStudentId, term, marks, availableSubjects]);
 
-  const handleAssetUpload = (key: string, e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+  const selectedStudent = students.find(s => s.id === (previewRecord?.studentId || selectedStudentId));
+
+  const handleSignUpload = (role: 'principal' | 'teacher', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        setter(base64);
-        storage.set(key, base64);
+        if (role === 'principal') {
+          setPrincipalSign(base64);
+          storage.set(SIGN_KEYS.PRINCIPAL, base64);
+        } else {
+          setTeacherSign(base64);
+          storage.set(SIGN_KEYS.TEACHER, base64);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -158,8 +156,6 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
     return { grade: 'F', color: 'text-rose-500', feedback: 'Needs Improvement' };
   };
 
-  const selectedStudent = students.find(s => s.id === (previewRecord?.studentId || selectedStudentId));
-
   const renderPrintableMarksheet = (record: MarksRecord, student: Student) => {
     const recordSubjects = Object.keys(record.subjects);
     const totalMax = recordSubjects.length * 100;
@@ -172,31 +168,13 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
         ref={printableRef}
         className="bg-white p-12 w-[210mm] min-h-[297mm] mx-auto border-[16px] border-double border-indigo-100 relative shadow-inner overflow-hidden flex flex-col"
       >
-        {/* BACKGROUND WATERMARK ENGINE */}
-        <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden">
-          {customBg ? (
-            <img 
-              src={customBg} 
-              style={{ opacity: bgOpacity / 100, width: '90%', objectFit: 'contain' }} 
-              alt="Watermark" 
-            />
-          ) : (
-            <div className="opacity-[0.03] w-[500px]">
-               <Logo size="lg" className="w-full" />
-            </div>
-          )}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none w-[500px]">
+           <Logo size="lg" className="w-full" />
         </div>
 
-        {/* Header Section */}
         <div className="flex items-start justify-between border-b-8 border-indigo-600 pb-10 mb-10 relative z-10">
           <div className="flex gap-8 items-center">
-             <div style={{ width: `${logoScale}px` }} className="transition-all shrink-0">
-                {customLogo ? (
-                  <img src={customLogo} className="w-full h-auto drop-shadow-2xl" alt="School Logo" />
-                ) : (
-                  <Logo size="lg" className="drop-shadow-2xl scale-110" />
-                )}
-             </div>
+             <Logo size="lg" className="drop-shadow-2xl scale-110" />
              <div>
                <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2">Digital Education</h1>
                <p className="text-[12px] font-black text-indigo-400 uppercase tracking-[0.4em] bg-indigo-50 px-6 py-2 rounded-full inline-block">Center of Academic Excellence</p>
@@ -226,7 +204,7 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
                <div className="flex items-center border-b-2 border-gray-100 pb-2"><span className="font-black uppercase text-indigo-400 mr-8 text-[10px] w-40">Admission ID:</span> <span className="font-black text-indigo-600 text-lg">{student.admissionNo}</span></div>
             </div>
             <div className="space-y-6">
-               <div className="flex items-center border-b-2 border-gray-100 pb-2"><span className="font-bold text-gray-400 mr-8 text-[10px] w-40 uppercase">Class / Standard:</span> <span className="font-bold text-gray-800 text-lg uppercase">Class {student.grade}</span></div>
+               <div className="flex items-center border-b-2 border-gray-100 pb-2"><span className="font-black uppercase text-indigo-400 mr-8 text-[10px] w-40">Class / Standard:</span> <span className="font-bold text-gray-800 text-lg uppercase">Class {student.grade}</span></div>
                <div className="flex items-center border-b-2 border-gray-100 pb-2"><span className="font-black uppercase text-indigo-400 mr-8 text-[10px] w-40">Exam Term:</span> <span className="font-black text-rose-600 text-lg uppercase">{record.term}</span></div>
             </div>
           </div>
@@ -294,7 +272,7 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
                <div className="h-28 flex items-center justify-center mb-6 relative overflow-hidden group">
                   {teacherSign ? (
                     <img src={teacherSign} className="max-h-full max-w-full object-contain mix-blend-multiply scale-125" alt="Teacher Sign" />
-                  ) : <div className="text-[10px] font-black text-gray-300 italic">Class Master Sign</div>}
+                  ) : <div className="text-[10px] font-black text-gray-300">Class Master Sign</div>}
                </div>
                <div className="w-full h-1 bg-indigo-900/10 mb-3 rounded-full"></div>
                <p className="text-base font-black text-indigo-900 tracking-tight">Class Instructor</p>
@@ -313,7 +291,7 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
                <div className="h-28 flex items-center justify-center mb-6 relative overflow-hidden group">
                   {principalSign ? (
                     <img src={principalSign} className="max-h-full max-w-full object-contain mix-blend-multiply scale-125" alt="Principal Sign" />
-                  ) : <div className="text-[10px] font-black text-gray-300 italic">Principal Sign</div>}
+                  ) : <div className="text-[10px] font-black text-gray-300">Principal Sign</div>}
                </div>
                <div className="w-full h-1 bg-indigo-900/10 mb-3 rounded-full"></div>
                <p className="text-base font-black text-indigo-900 tracking-tight">Principal Seal</p>
@@ -340,8 +318,8 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
               onClick={() => setShowSettings(!showSettings)}
               className={`px-10 py-5 rounded-[2rem] font-black flex items-center gap-3 transition-all border-4 shadow-2xl ${showSettings ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-50 hover:bg-indigo-50'}`}
             >
-              <i className={`fa-solid ${showSettings ? 'fa-xmark' : 'fa-wand-magic-sparkles'}`}></i>
-              {showSettings ? 'Close Branding' : 'Transcript Setup'}
+              <i className={`fa-solid ${showSettings ? 'fa-xmark' : 'fa-signature'}`}></i>
+              {showSettings ? 'Close Config' : 'Transcript Setup'}
             </button>
           )}
           <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-2xl ring-8 ring-white">
@@ -351,104 +329,56 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
       </header>
 
       {showSettings && user.role === UserRole.ADMIN && (
-        <div className="bg-white p-12 rounded-[5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.1)] border-4 border-indigo-50 animate-slide-up space-y-16">
+        <div className="bg-white p-12 rounded-[5rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.1)] border-4 border-indigo-50 animate-slide-up space-y-12">
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-              {/* Branding Section */}
-              <div className="space-y-10">
-                 <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-4 border-b border-indigo-50 pb-4">
-                    <i className="fa-solid fa-paintbrush"></i> Visual Branding Engine
+              <div className="space-y-8">
+                 <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-4 mb-8">
+                    <i className="fa-solid fa-book-open"></i> Subject Configuration
                  </h3>
-                 
-                 <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Header Logo</p>
-                       <div 
-                         className="h-32 bg-gray-50 rounded-[2rem] border-4 border-dashed border-gray-200 flex items-center justify-center relative group overflow-hidden cursor-pointer"
-                         onClick={() => logoInputRef.current?.click()}
-                       >
-                          {customLogo ? <img src={customLogo} className="max-h-full p-4 object-contain" alt="Logo Preview" /> : <i className="fa-solid fa-image text-gray-200 text-3xl"></i>}
-                          <div className="absolute inset-0 bg-indigo-950/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                             <span className="text-white text-[9px] font-black uppercase">Replace Logo</span>
-                          </div>
-                       </div>
-                       <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={(e) => handleAssetUpload(CONFIG_KEYS.CUSTOM_LOGO, e, setCustomLogo)} />
-                       <div className="space-y-1">
-                          <div className="flex justify-between items-center"><span className="text-[9px] font-black text-indigo-400 uppercase">Logo Size</span><span className="text-[9px] font-bold text-gray-400">{logoScale}px</span></div>
-                          <input type="range" min="50" max="250" value={logoScale} onChange={(e) => { const val = Number(e.target.value); setLogoScale(val); storage.set(CONFIG_KEYS.LOGO_SCALE, val); }} className="w-full accent-indigo-600" />
-                       </div>
-                    </div>
-
-                    <div className="space-y-4">
-                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Background Watermark</p>
-                       <div 
-                         className="h-32 bg-gray-50 rounded-[2rem] border-4 border-dashed border-gray-200 flex items-center justify-center relative group overflow-hidden cursor-pointer"
-                         onClick={() => bgInputRef.current?.click()}
-                       >
-                          {customBg ? <img src={customBg} className="max-h-full p-4 object-contain opacity-40" alt="Bg Preview" /> : <i className="fa-solid fa-stamp text-gray-200 text-3xl"></i>}
-                          <div className="absolute inset-0 bg-indigo-950/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                             <span className="text-white text-[9px] font-black uppercase">Replace Watermark</span>
-                          </div>
-                       </div>
-                       <input type="file" ref={bgInputRef} className="hidden" accept="image/*" onChange={(e) => handleAssetUpload(CONFIG_KEYS.CUSTOM_BG, e, setCustomBg)} />
-                       <div className="space-y-1">
-                          <div className="flex justify-between items-center"><span className="text-[9px] font-black text-indigo-400 uppercase">Visibility</span><span className="text-[9px] font-bold text-gray-400">{bgOpacity}%</span></div>
-                          <input type="range" min="1" max="50" value={bgOpacity} onChange={(e) => { const val = Number(e.target.value); setBgOpacity(val); storage.set(CONFIG_KEYS.BG_OPACITY, val); }} className="w-full accent-indigo-600" />
-                       </div>
-                    </div>
-                 </div>
-
-                 <div className="pt-6">
-                    <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-4 border-b border-indigo-50 pb-4 mb-8">
-                        <i className="fa-solid fa-book-open"></i> Subject Registry
-                    </h3>
-                    <form onSubmit={(e) => { e.preventDefault(); if (newSubjectName.trim()) { onUpdateSubjects([...availableSubjects, newSubjectName.trim()]); setNewSubjectName(''); } }} className="flex gap-4">
-                        <input required className="flex-1 px-8 py-5 rounded-3xl bg-gray-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-bold shadow-inner" placeholder="e.g. Robotics, Arts..." value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)} />
-                        <button type="submit" className="px-10 py-5 bg-indigo-600 text-white rounded-3xl font-black shadow-xl hover:scale-105 active:scale-95 transition-all">Add</button>
-                    </form>
-                    <div className="flex flex-wrap gap-3 mt-6">
-                        {availableSubjects.map(sub => (
-                          <div key={sub} className="px-5 py-3 bg-indigo-50 text-indigo-700 rounded-2xl font-black text-[11px] flex items-center gap-4 group border border-indigo-100 uppercase tracking-widest shadow-sm">
-                            {sub}
-                            <button onClick={() => onUpdateSubjects(availableSubjects.filter(s => s !== sub))} className="text-rose-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><i className="fa-solid fa-xmark"></i></button>
-                          </div>
-                        ))}
-                    </div>
+                 <form onSubmit={(e) => { e.preventDefault(); if (newSubjectName.trim()) { onUpdateSubjects([...availableSubjects, newSubjectName.trim()]); setNewSubjectName(''); } }} className="flex gap-4">
+                    <input 
+                      required
+                      className="flex-1 px-8 py-5 rounded-3xl bg-gray-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-bold shadow-inner"
+                      placeholder="e.g. Robotics, Arts..."
+                      value={newSubjectName}
+                      onChange={e => setNewSubjectName(e.target.value)}
+                    />
+                    <button type="submit" className="px-10 py-5 bg-indigo-600 text-white rounded-3xl font-black shadow-xl hover:scale-105 active:scale-95 transition-all">Add Subject</button>
+                 </form>
+                 <div className="flex flex-wrap gap-3">
+                    {availableSubjects.map(sub => (
+                      <div key={sub} className="px-5 py-3 bg-indigo-50 text-indigo-700 rounded-2xl font-black text-[11px] flex items-center gap-4 group border border-indigo-100 uppercase tracking-widest">
+                        {sub}
+                        <button onClick={() => onUpdateSubjects(availableSubjects.filter(s => s !== sub))} className="text-rose-400 hover:text-rose-600 opacity-0 group-hover:opacity-100 transition-opacity"><i className="fa-solid fa-xmark"></i></button>
+                      </div>
+                    ))}
                  </div>
               </div>
 
-              {/* Signature Section */}
-              <div className="space-y-10">
-                 <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-4 border-b border-indigo-50 pb-4">
+              <div className="space-y-8">
+                 <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-4 mb-8">
                     <i className="fa-solid fa-file-signature"></i> Signature Registry
                  </h3>
                  <div className="grid grid-cols-2 gap-10">
                     <div className="space-y-4">
-                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Principal Official Seal</p>
+                       <p className="text-[11px] font-black text-indigo-400 uppercase tracking-widest ml-1">Principal Official Seal</p>
                        <div className="h-44 bg-gray-50 rounded-[3rem] border-4 border-dashed border-gray-200 flex items-center justify-center relative group overflow-hidden shadow-inner cursor-pointer" onClick={() => principalSignInputRef.current?.click()}>
                           {principalSign ? <img src={principalSign} className="max-h-full p-6 object-contain mix-blend-multiply" alt="Principal Sign" /> : <i className="fa-solid fa-cloud-arrow-up text-gray-200 text-5xl"></i>}
                           <div className="absolute inset-0 bg-indigo-950/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                              <span className="text-white text-[10px] font-black uppercase tracking-widest">Update Principal Sign</span>
                           </div>
                        </div>
-                       <input type="file" accept="image/*" className="hidden" ref={principalSignInputRef} onChange={e => handleAssetUpload(CONFIG_KEYS.PRINCIPAL, e, setPrincipalSign)} />
+                       <input type="file" accept="image/*" className="hidden" ref={principalSignInputRef} onChange={e => handleSignUpload('principal', e)} />
                     </div>
                     <div className="space-y-4">
-                       <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest ml-1">Master Teacher Sign</p>
+                       <p className="text-[11px] font-black text-indigo-400 uppercase tracking-widest ml-1">Master Teacher Sign</p>
                        <div className="h-44 bg-gray-50 rounded-[3rem] border-4 border-dashed border-gray-200 flex items-center justify-center relative group overflow-hidden shadow-inner cursor-pointer" onClick={() => teacherSignInputRef.current?.click()}>
                           {teacherSign ? <img src={teacherSign} className="max-h-full p-6 object-contain mix-blend-multiply" alt="Teacher Sign" /> : <i className="fa-solid fa-cloud-arrow-up text-gray-200 text-5xl"></i>}
                           <div className="absolute inset-0 bg-indigo-950/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                              <span className="text-white text-[10px] font-black uppercase tracking-widest">Update Master Sign</span>
                           </div>
                        </div>
-                       <input type="file" accept="image/*" className="hidden" ref={teacherSignInputRef} onChange={e => handleAssetUpload(CONFIG_KEYS.TEACHER, e, setTeacherSign)} />
-                    </div>
-                 </div>
-                 
-                 <div className="bg-amber-50 p-8 rounded-[2.5rem] border border-amber-100 flex items-center gap-6 shadow-sm">
-                    <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-amber-500 text-2xl shadow-sm"><i className="fa-solid fa-circle-info"></i></div>
-                    <div>
-                        <h4 className="font-black text-amber-700 uppercase text-xs tracking-widest">High-Resolution Tip</h4>
-                        <p className="text-[11px] font-medium text-amber-600 leading-relaxed italic mt-1">"For best results, upload images with transparent backgrounds (PNG) for both logos and signatures."</p>
+                       <input type="file" accept="image/*" className="hidden" ref={teacherSignInputRef} onChange={e => handleSignUpload('teacher', e)} />
                     </div>
                  </div>
               </div>
@@ -643,13 +573,14 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 12px; }
-        .theatre-scroll::-webkit-scrollbar { width: 0; }
+        .theatre-scroll::-webkit-scrollbar { width: 0; } /* Hide for theatre mode */
         
         .animate-float { animation: float 6s ease-in-out infinite; }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         
         .marksheet-scale-anchor {
            transform-origin: top center;
+           /* Auto scale based on height of screen */
            transform: scale(min(1, calc((100vh - 200px) / 297mm)));
         }
 
