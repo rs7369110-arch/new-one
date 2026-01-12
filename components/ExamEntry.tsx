@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, Student, MarksRecord, TeacherAssignment } from '../types';
 
@@ -65,9 +64,11 @@ const ExamEntry: React.FC<ExamEntryProps> = ({ user, students, marks, onUpdateMa
       
       const formattedSubjects: any = {};
       Object.entries(subjects).forEach(([subName, scores]) => {
+        // Fixed: Cast scores to avoid 'unknown' errors when calculating total
+        const s = scores as { theory: number; practical: number };
         formattedSubjects[subName] = {
-          ...scores,
-          total: scores.theory + scores.practical,
+          ...s,
+          total: s.theory + s.practical,
           isLocked: false // Can be locked by Admin separately
         };
       });

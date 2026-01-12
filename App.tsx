@@ -85,10 +85,7 @@ const App: React.FC = () => {
   // INITIAL LOAD & SYNC
   useEffect(() => {
     const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
-    if (savedUser) {
-      setCurrentUser(savedUser);
-      if (savedUser.role === UserRole.PARENT) setActiveTab('dashboard');
-    }
+    if (savedUser) setCurrentUser(savedUser);
 
     // 1. Load from LocalStorage (Instant UI)
     setStudents(storage.get(DB_KEYS.STUDENTS, []));
@@ -113,7 +110,7 @@ const App: React.FC = () => {
       try {
         setIsSyncing(true);
         const [
-          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData
+          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, actData
         ] = await Promise.all([
           dbService.fetchAll('students'),
           dbService.fetchAll('notices'),
@@ -129,6 +126,8 @@ const App: React.FC = () => {
           dbService.fetchAll('fee_structures'),
           dbService.fetchAll('fee_transactions'),
           dbService.fetchAll('custom_templates'),
+          dbService.fetchAll('subject_list'),
+          dbService.fetchAll('activities')
         ]);
 
         if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
@@ -145,10 +144,12 @@ const App: React.FC = () => {
         if (fsData.length) { setFeeStructures(fsData); storage.set(DB_KEYS.FEE_STRUCTURES, fsData); }
         if (ftData.length) { setFeeTransactions(ftData); storage.set(DB_KEYS.FEE_TRANSACTIONS, ftData); }
         if (ctData.length) { setCustomTemplates(ctData); storage.set(DB_KEYS.CUSTOM_TEMPLATES, ctData); }
+        if (subData.length) { setAvailableSubjects(subData); storage.set(DB_KEYS.SUBJECT_LIST, subData); }
+        if (actData.length) { setActivities(actData); storage.set(DB_KEYS.ACTIVITY_LOG, actData); }
         
         setIsSyncing(false);
       } catch (err) {
-        console.warn("Offline Mode: Supabase sync failed. Using local data.", err);
+        console.warn("Sync failed. Using local storage.", err);
         setIsSyncing(false);
       }
     };
@@ -164,51 +165,15 @@ const App: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
-  const toggleLanguage = () => {
-    const nextLang = currentLang === Language.EN ? Language.GU : Language.EN;
-    setCurrentLang(nextLang);
-    storage.set(DB_KEYS.LANGUAGE as any, nextLang);
-  };
-
-  const getUnreadCounts = () => {
-    return {
-      notices: notices.filter(n => new Date(n.date).getTime() > (lastViewed['notices'] || 0)).length,
-      messages: messages.filter(m => new Date(m.date).getTime() > (lastViewed['messages'] || 0)).length,
-      gallery: gallery.filter(g => new Date(g.date).getTime() > (lastViewed['gallery'] || 0)).length,
-      leaves: leaves.filter(l => l.status === 'PENDING').length
-    };
-  };
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    storage.set(DB_KEYS.USER, user);
-    const welcomeMsg = user.role === UserRole.PARENT ? `Welcome to Parent Portal, ${user.name}` : `Authorized Access: ${user.name}`;
-    triggerNotification('Session Initialized', welcomeMsg, 'success');
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    storage.clear(DB_KEYS.USER);
-    triggerNotification('Security Check', 'You have been logged out safely.', 'info');
-  };
-
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
-
-  // ROBUST SYNC WRAPPER
   const createSyncUpdate = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T>>) => {
     return async (newData: T) => {
-      // Update UI & LocalStorage Immediately (Speed)
       setter(newData);
       storage.set(key, newData);
-
-      // Background Sync to Supabase
       try {
         await dbService.upsert(table, newData);
       } catch (err) {
         console.error(`Sync Error [${table}]:`, err);
-        triggerNotification('Sync Delayed', 'Changes saved locally. Will sync when online.', 'info');
+        triggerNotification('Sync Delayed', 'Changes saved locally. Cloud sync pending.', 'info');
       }
     };
   };
@@ -228,10 +193,9 @@ const App: React.FC = () => {
   const updateFeeStructures = createSyncUpdate(DB_KEYS.FEE_STRUCTURES, 'fee_structures', setFeeStructures);
   const updateFeeTransactions = createSyncUpdate(DB_KEYS.FEE_TRANSACTIONS, 'fee_transactions', setFeeTransactions);
   const updateCustomTemplates = createSyncUpdate(DB_KEYS.CUSTOM_TEMPLATES, 'custom_templates', setCustomTemplates);
+  const updateActivities = createSyncUpdate(DB_KEYS.ACTIVITY_LOG, 'activities', setActivities);
 
-  if (!currentUser) {
-    return <Login onLogin={handleLogin} />;
-  }
+  if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -241,7 +205,7 @@ const App: React.FC = () => {
       case 'leaves': return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} />;
       case 'messages': return <MessageManager user={currentUser} messages={messages} onUpdateMessages={updateMessages} />;
       case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} isDarkMode={isDarkMode} />;
-      case 'activity': return <ActivityReport activities={activities} onClearLog={() => { setActivities([]); storage.set(DB_KEYS.ACTIVITY_LOG, []); }} />;
+      case 'activity': return <ActivityReport activities={activities} onClearLog={() => updateActivities([])} />;
       case 'students': return <StudentManagement students={students} setStudents={updateStudents} />;
       case 'student-reports': return <StudentReports students={students} attendance={attendance} />;
       case 'exam-entry': return <ExamEntry user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
@@ -260,81 +224,20 @@ const App: React.FC = () => {
     }
   };
 
-  const getNotifIcon = (type: Notification['type']) => {
-    switch(type) {
-      case 'success': return 'fa-circle-check text-emerald-500';
-      case 'error': return 'fa-circle-exclamation text-rose-500';
-      case 'notice': return 'fa-bolt-lightning text-amber-500';
-      case 'sync': return 'fa-arrows-rotate fa-spin text-indigo-500';
-      default: return 'fa-bell text-blue-500';
-    }
-  };
-
   return (
-    <div className={`flex flex-col md:flex-row h-screen overflow-hidden relative font-['Inter'] transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
-      {/* Background Decor */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-         <div className={`absolute top-[-10%] left-[-5%] w-[60%] h-[70%] rounded-full blur-[120px] transition-colors duration-1000 ${isDarkMode ? 'bg-indigo-900/20' : 'bg-indigo-500/10'}`}></div>
-      </div>
-
-      {/* Syncing Status Indicator */}
+    <div className={`flex flex-col md:flex-row h-screen overflow-hidden relative transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
       {isSyncing && (
-        <div className="fixed top-24 right-6 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-notif-in border border-indigo-400">
-           <i className="fa-solid fa-cloud-arrow-down fa-bounce text-xs"></i>
+        <div className="fixed top-24 right-6 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-bounce border border-indigo-400">
+           <i className="fa-solid fa-cloud-arrow-down text-xs"></i>
            <span className="text-[10px] font-black uppercase tracking-widest">Syncing Cloud</span>
         </div>
       )}
 
-      {/* Dynamic Notifications */}
-      <div className="fixed top-6 right-6 z-[5000] flex flex-col gap-3 w-80 pointer-events-none">
-        {notifications.map(n => (
-          <div key={n.id} className={`pointer-events-auto w-full p-4 rounded-2xl shadow-2xl backdrop-blur-3xl border animate-notif-in flex gap-4 items-start ${
-            isDarkMode ? 'bg-white/10 border-white/10' : 'bg-white border-slate-100 shadow-indigo-100'
-          }`}>
-             <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
-                <i className={`fa-solid ${getNotifIcon(n.type)} text-lg`}></i>
-             </div>
-             <div className="flex-1 min-w-0">
-                <h4 className={`font-black text-xs uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{n.title}</h4>
-                <p className="text-[10px] font-medium text-slate-400 leading-relaxed mt-1">{n.message}</p>
-             </div>
-             <button onClick={() => setNotifications(prev => prev.filter(x => x.id !== n.id))} className="text-slate-500 hover:text-white transition-colors">
-                <i className="fa-solid fa-xmark text-xs"></i>
-             </button>
-          </div>
-        ))}
-      </div>
-
-      {/* Mobile Top Bar */}
-      <div className={`md:hidden flex items-center justify-between px-6 py-4 sticky top-0 z-[2000] border-b backdrop-blur-xl ${
-        isDarkMode ? 'bg-[#0a0a0c]/80 border-white/5' : 'bg-white/80 border-slate-100'
-      }`}>
-        <button onClick={() => setIsSidebarOpen(true)} className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
-          <i className="fa-solid fa-bars-staggered text-xl"></i>
-        </button>
-        <div className="flex items-center gap-2">
-           <Logo size="sm" />
-           <span className={`font-black text-lg tracking-tighter ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>DIGITAL EDU</span>
-        </div>
-        <button onClick={toggleTheme} className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${isDarkMode ? 'bg-amber-500/10 text-amber-500' : 'bg-amber text-amber-600'}`}>
-           <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
-        </button>
-      </div>
-
-      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={handleLogout} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={toggleTheme} unreadCounts={getUnreadCounts()} currentLang={currentLang} toggleLanguage={toggleLanguage} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={() => { setCurrentUser(null); storage.clear(DB_KEYS.USER); }} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
       <main className="flex-1 overflow-y-auto p-4 md:p-12 relative z-10 custom-scrollbar">
-        <div className="max-w-7xl mx-auto">
-          {renderContent()}
-        </div>
+        <div className="max-w-7xl mx-auto">{renderContent()}</div>
       </main>
-
-      <style>{`
-        @keyframes notifIn { from { transform: translateX(120%) scale(0.9); opacity: 0; } to { transform: translateX(0) scale(1); opacity: 1; } }
-        .animate-notif-in { animation: notifIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}; border-radius: 20px; }
-      `}</style>
     </div>
   );
 };

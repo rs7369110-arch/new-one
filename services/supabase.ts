@@ -9,7 +9,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Utility to convert camelCase to snake_case for Supabase
 const toSnakeCase = (obj: any) => {
-  if (!obj || typeof obj !== 'object') return obj;
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
   const result: any = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -22,7 +22,7 @@ const toSnakeCase = (obj: any) => {
 
 // Utility to convert snake_case to camelCase for Frontend
 const toCamelCase = (obj: any) => {
-  if (!obj || typeof obj !== 'object') return obj;
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
   const result: any = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -40,6 +40,12 @@ export const dbService = {
     try {
       const { data, error } = await supabase.from(table).select('*');
       if (error) throw error;
+      
+      if (table === 'subject_list') {
+        const settings = data?.find(item => item.id === 'current_subjects');
+        return settings ? settings.list : [];
+      }
+      
       return (data || []).map(item => toCamelCase(item));
     } catch (err) {
       console.warn(`Sync Warning [${table}]:`, err);
@@ -49,15 +55,21 @@ export const dbService = {
 
   async upsert(table: string, payload: any | any[]) {
     try {
-      const dataToPush = Array.isArray(payload) 
-        ? payload.map(item => toSnakeCase(item)) 
-        : toSnakeCase(payload);
+      let dataToPush: any;
+
+      // Special handling for the subjects list which is string[]
+      if (table === 'subject_list') {
+        dataToPush = { id: 'current_subjects', list: payload };
+      } else if (Array.isArray(payload)) {
+        dataToPush = payload.map(item => toSnakeCase(item));
+      } else {
+        dataToPush = toSnakeCase(payload);
+      }
       
-      // Determine which column to use for handling conflicts based on the table
       let onConflict = 'id';
       if (table === 'food_chart') onConflict = 'day';
       if (table === 'fee_structures') onConflict = 'grade';
-      if (table === 'attendance') onConflict = 'date,student_id'; // Matching our UNIQUE constraint in SQL
+      if (table === 'attendance') onConflict = 'date,student_id';
 
       const { error } = await supabase.from(table).upsert(dataToPush, { onConflict });
       if (error) throw error;
@@ -69,7 +81,6 @@ export const dbService = {
 
   async delete(table: string, id: string) {
     try {
-      // For most tables, PK is 'id'. For special ones, it might be different.
       const pk = (table === 'food_chart') ? 'day' : (table === 'fee_structures' ? 'grade' : 'id');
       const { error } = await supabase.from(table).delete().eq(pk, id);
       if (error) throw error;

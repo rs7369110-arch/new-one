@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { User, UserRole, GalleryItem } from '../types';
 import Logo from './Logo';
@@ -39,7 +38,8 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
     if (!isAdmin || !e.target.files) return;
     
     setIsProcessing(true);
-    const files = Array.from(e.target.files);
+    // Fixed: Cast Array.from result to File[] to avoid unknown property errors
+    const files = Array.from(e.target.files) as File[];
     const newPending: PendingFile[] = [];
 
     for (const file of files) {
@@ -303,7 +303,7 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                                 </div>
                               )}
                               <button onClick={() => removePending(f.id)} className="absolute top-2 right-2 w-8 h-8 bg-rose-500 text-white rounded-xl flex items-center justify-center text-xs shadow-lg">
-                                 <i className="fa-solid fa-times"></i>
+                                 <i className="fa-solid fa-xmark"></i>
                               </button>
                            </div>
                          ))}
