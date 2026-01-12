@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { User, UserRole, Student, AttendanceRecord } from '../types';
 
 interface AttendanceProps {
@@ -15,7 +15,15 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
   const [searchRoll, setSearchRoll] = useState('');
   const [quickRoll, setQuickRoll] = useState('');
 
-  // Sort and filter students
+  const isParent = user.role === UserRole.PARENT;
+  const isStaff = user.role === UserRole.ADMIN || user.role === UserRole.TEACHER;
+
+  // For Parent: Get linked student
+  const myChild = useMemo(() => {
+    return isParent ? students.find(s => s.id === user.studentId) : null;
+  }, [isParent, students, user.studentId]);
+
+  // For Staff: Sort and filter students
   const filteredStudents = students
     .filter(s => s.grade === selectedGrade)
     .sort((a, b) => (parseInt(a.rollNo) || 0) - (parseInt(b.rollNo) || 0));
@@ -25,7 +33,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
     : filteredStudents;
 
   const toggleStatus = (studentId: string) => {
-    if (user.role !== UserRole.ADMIN && user.role !== UserRole.TEACHER) return;
+    if (!isStaff) return;
 
     const existingIndex = attendance.findIndex(a => a.studentId === studentId && a.date === selectedDate);
     const newRecords = [...attendance];
@@ -45,8 +53,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
 
   const handleQuickAttendance = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickRoll) return;
-    if (user.role !== UserRole.ADMIN && user.role !== UserRole.TEACHER) return;
+    if (!quickRoll || !isStaff) return;
 
     const student = filteredStudents.find(s => s.rollNo === quickRoll);
     if (student) {
@@ -60,15 +67,13 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
       }
       setAttendance(newRecords);
       setQuickRoll('');
-      // Small feedback alert for UX (optional, but good for speed entry)
-      console.log(`Roll ${quickRoll} marked Present`);
     } else {
       alert(`Roll No ${quickRoll} not found in Class ${selectedGrade}!`);
     }
   };
 
   const markAllPresent = () => {
-    if (user.role !== UserRole.ADMIN && user.role !== UserRole.TEACHER) return;
+    if (!isStaff) return;
     const msg = `Are you sure you want to mark all students in Class ${selectedGrade} as Present for ${selectedDate}?`;
     if (!window.confirm(msg)) return;
 
@@ -84,19 +89,129 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
     setAttendance(newRecords);
   };
 
-  const getStatus = (studentId: string) => {
-    return attendance.find(a => a.studentId === studentId && a.date === selectedDate)?.status || 'NOT_MARKED';
+  const getStatus = (studentId: string, date: string = selectedDate) => {
+    return attendance.find(a => a.studentId === studentId && a.date === date)?.status || 'NOT_MARKED';
   };
 
-  const stats = {
+  const staffStats = {
     present: filteredStudents.filter(s => getStatus(s.id) === 'PRESENT').length,
     absent: filteredStudents.filter(s => getStatus(s.id) === 'ABSENT').length,
     late: filteredStudents.filter(s => getStatus(s.id) === 'LATE').length,
     total: filteredStudents.length
   };
 
-  const absentees = filteredStudents.filter(s => getStatus(s.id) === 'ABSENT');
+  // Parent Specific Logic
+  const childAttendanceHistory = useMemo(() => {
+    if (!isParent || !myChild) return [];
+    return attendance
+      .filter(a => a.studentId === myChild.id)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [isParent, myChild, attendance]);
 
+  const parentStats = useMemo(() => {
+    if (!isParent || !myChild) return { present: 0, absent: 0, percentage: 0 };
+    const childRecords = attendance.filter(a => a.studentId === myChild.id);
+    const present = childRecords.filter(r => r.status === 'PRESENT' || r.status === 'LATE').length;
+    const total = childRecords.length;
+    return {
+      present,
+      absent: childRecords.filter(r => r.status === 'ABSENT').length,
+      percentage: total > 0 ? (present / total) * 100 : 0
+    };
+  }, [isParent, myChild, attendance]);
+
+  if (isParent) {
+    return (
+      <div className="space-y-8 animate-fade-in pb-24">
+        <header className="flex items-center gap-6 bg-white p-8 rounded-[3rem] shadow-xl border border-indigo-50">
+          <div className="w-16 h-16 bg-indigo-600 text-white rounded-[2rem] flex items-center justify-center text-3xl shadow-2xl">
+            <i className="fa-solid fa-child-reaching"></i>
+          </div>
+          <div>
+            <h1 className="text-3xl font-black text-indigo-950 tracking-tighter uppercase">Child Attendance</h1>
+            <p className="text-indigo-500 font-bold text-xs uppercase tracking-[0.3em] mt-1">Official Registry for {myChild?.name}</p>
+          </div>
+        </header>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div className="bg-emerald-50 p-8 rounded-[3rem] border border-white flex items-center gap-6 shadow-sm">
+              <div className="w-14 h-14 bg-white text-emerald-500 rounded-2xl flex items-center justify-center text-2xl shadow-sm">
+                 <i className="fa-solid fa-calendar-check"></i>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Days Present</p>
+                <p className="text-3xl font-black text-emerald-900">{parentStats.present}</p>
+              </div>
+           </div>
+           <div className="bg-rose-50 p-8 rounded-[3rem] border border-white flex items-center gap-6 shadow-sm">
+              <div className="w-14 h-14 bg-white text-rose-500 rounded-2xl flex items-center justify-center text-2xl shadow-sm">
+                 <i className="fa-solid fa-calendar-xmark"></i>
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest">Days Absent</p>
+                <p className="text-3xl font-black text-rose-900">{parentStats.absent}</p>
+              </div>
+           </div>
+           <div className="bg-indigo-950 p-8 rounded-[3rem] text-white flex items-center gap-6 shadow-2xl relative overflow-hidden">
+              <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-2xl border border-white/10">
+                 <i className="fa-solid fa-percent text-indigo-300"></i>
+              </div>
+              <div className="relative z-10">
+                <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Total Ratio</p>
+                <p className="text-3xl font-black">{parentStats.percentage.toFixed(1)}%</p>
+              </div>
+              <div className="absolute top-[-20%] right-[-10%] w-24 h-24 bg-white/5 rounded-full blur-xl"></div>
+           </div>
+        </div>
+
+        <div className="bg-white rounded-[3rem] shadow-xl border border-indigo-50 overflow-hidden">
+          <div className="p-8 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+             <h3 className="text-xl font-black text-indigo-950 uppercase tracking-tighter">Attendance History</h3>
+             <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Read Only Archive</span>
+          </div>
+          <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+            {childAttendanceHistory.length > 0 ? (
+              <table className="w-full text-left">
+                <thead className="bg-indigo-50/30 sticky top-0">
+                  <tr className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                    <th className="px-8 py-5">Date</th>
+                    <th className="px-8 py-5">Academic Status</th>
+                    <th className="px-8 py-5 text-right">Registry Seal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-indigo-50">
+                  {childAttendanceHistory.map((rec, idx) => (
+                    <tr key={idx} className="hover:bg-indigo-50/10 transition-colors">
+                      <td className="px-8 py-6 font-bold text-gray-700">{new Date(rec.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
+                      <td className="px-8 py-6">
+                        <span className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border shadow-sm ${
+                          rec.status === 'PRESENT' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          rec.status === 'ABSENT' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                          'bg-amber-50 text-amber-600 border-amber-100'
+                        }`}>
+                          {rec.status}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                         <i className="fa-solid fa-circle-check text-emerald-500/30 text-xl"></i>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="py-32 text-center opacity-30">
+                 <i className="fa-solid fa-calendar-minus text-6xl mb-4"></i>
+                 <p className="font-black text-xl uppercase tracking-widest">No Attendance Records Yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // STAFF VIEW
   return (
     <div className="space-y-6 animate-fade-in pb-24">
       <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-white p-6 rounded-[2.5rem] shadow-xl border border-indigo-50">
@@ -113,7 +228,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Quick Roll Entry Bar - UNIQUE FEATURE */}
           <form onSubmit={handleQuickAttendance} className="flex bg-indigo-50 p-1 rounded-2xl border border-indigo-100 items-center">
             <input 
               type="text" 
@@ -144,7 +258,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
             {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n.toString()}>Class {n}</option>)}
           </select>
 
-          {(user.role === UserRole.ADMIN || user.role === UserRole.TEACHER) && (
+          {isStaff && (
             <button 
               onClick={markAllPresent}
               className="px-5 py-3 bg-emerald-500 text-white text-[10px] font-black rounded-2xl hover:bg-emerald-600 transition-all shadow-lg flex items-center gap-2 uppercase tracking-widest"
@@ -156,13 +270,12 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
         </div>
       </header>
 
-      {/* Dynamic Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
          {[
-           { label: 'Total', value: stats.total, icon: 'fa-users', color: 'text-indigo-500', bg: 'bg-indigo-50' },
-           { label: 'Present', value: stats.present, icon: 'fa-user-check', color: 'text-emerald-500', bg: 'bg-emerald-50' },
-           { label: 'Absent', value: stats.absent, icon: 'fa-user-xmark', color: 'text-rose-500', bg: 'bg-rose-50' },
-           { label: 'Late', value: stats.late, icon: 'fa-user-clock', color: 'text-amber-500', bg: 'bg-amber-50' },
+           { label: 'Total', value: staffStats.total, icon: 'fa-users', color: 'text-indigo-500', bg: 'bg-indigo-50' },
+           { label: 'Present', value: staffStats.present, icon: 'fa-user-check', color: 'text-emerald-500', bg: 'bg-emerald-50' },
+           { label: 'Absent', value: staffStats.absent, icon: 'fa-user-xmark', color: 'text-rose-500', bg: 'bg-rose-50' },
+           { label: 'Late', value: staffStats.late, icon: 'fa-user-clock', color: 'text-amber-500', bg: 'bg-amber-50' },
          ].map((stat) => (
             <div key={stat.label} className={`${stat.bg} p-5 rounded-[2rem] border border-white flex items-center gap-4 shadow-sm`}>
                <div className={`w-10 h-10 bg-white ${stat.color} rounded-xl flex items-center justify-center text-lg shadow-sm`}>
@@ -230,7 +343,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
                         <td className="px-6 py-3">
                            <div className="flex justify-center">
                              <button 
-                               disabled={user.role !== UserRole.ADMIN && user.role !== UserRole.TEACHER}
+                               disabled={!isStaff}
                                onClick={() => toggleStatus(s.id)}
                                className={`min-w-[120px] py-2.5 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all transform active:scale-95 flex items-center justify-center gap-2 ${
                                  status === 'PRESENT' ? 'bg-emerald-500 text-white shadow-md' : 
@@ -264,7 +377,6 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
           </div>
         </div>
 
-        {/* Sidebar Reports */}
         <div className="space-y-6">
            <div className="bg-rose-600 p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
               <div className="relative z-10">
@@ -273,7 +385,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
                    Absent Heroes
                 </h3>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                   {absentees.length > 0 ? absentees.map(s => (
+                   {filteredStudents.filter(s => getStatus(s.id) === 'ABSENT').length > 0 ? filteredStudents.filter(s => getStatus(s.id) === 'ABSENT').map(s => (
                      <div key={s.id} className="p-3 bg-white/10 rounded-xl border border-white/10 flex items-center justify-between group hover:bg-white/20 transition-all">
                         <div className="flex items-center gap-3">
                            <div className="w-7 h-7 rounded-lg bg-white flex items-center justify-center font-black text-[10px] text-rose-600">
@@ -292,39 +404,12 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
                    )}
                 </div>
               </div>
-              <div className="absolute top-[-10%] right-[-10%] w-24 h-24 bg-white/5 rounded-full"></div>
-           </div>
-
-           <div className="bg-white p-6 rounded-[2.5rem] border border-indigo-50 shadow-sm">
-              <h3 className="font-black text-[10px] uppercase tracking-widest text-indigo-900 mb-4 flex items-center gap-2">
-                 <i className="fa-solid fa-lightbulb text-amber-500"></i>
-                 Quick Tips
-              </h3>
-              <ul className="space-y-3">
-                 <li className="flex gap-2 text-[10px] font-medium text-gray-500 leading-tight">
-                    <span className="w-4 h-4 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-[8px] shrink-0 font-black">1</span>
-                    Use the 'Quick Roll Entry' to mark presence instantly.
-                 </li>
-                 <li className="flex gap-2 text-[10px] font-medium text-gray-500 leading-tight">
-                    <span className="w-4 h-4 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-[8px] shrink-0 font-black">2</span>
-                    Press 'Enter' after typing roll no. for high-speed marking.
-                 </li>
-              </ul>
            </div>
         </div>
       </div>
-
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(0,0,0,0.05);
-          border-radius: 10px;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
       `}</style>
     </div>
   );

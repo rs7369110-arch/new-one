@@ -1,24 +1,78 @@
 
-import React, { useState, useRef } from 'react';
-import { Student } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { Student, UserRole, User } from '../types';
 import Logo from './Logo';
+import { storage, DB_KEYS } from '../db';
 
 interface ICardGeneratorProps {
   students: Student[];
+  user: User;
 }
+
+// Global settings key for ID card design
+const ID_SETTINGS_KEY = 'edu_id_card_custom_settings';
+
+interface IDSettings {
+  schoolName: string;
+  tagline: string;
+  themeColor: string;
+  customLogo: string | null;
+  signature: string | null;
+}
+
+const DEFAULT_SETTINGS: IDSettings = {
+  schoolName: 'Digital Education',
+  tagline: 'Excellence Defined',
+  themeColor: '#1e1b4b', // Deep Indigo
+  customLogo: null,
+  signature: null
+};
 
 // Declare html2pdf for TypeScript
 declare var html2pdf: any;
 
-const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students }) => {
+const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user }) => {
   const [selectedId, setSelectedId] = useState<string>('');
   const [isDownloading, setIsDownloading] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  
+  // Design State
+  const [settings, setSettings] = useState<IDSettings>(storage.get(ID_SETTINGS_KEY, DEFAULT_SETTINGS));
+  
+  // Student Override State (for temporary card edits)
+  const [overrides, setOverrides] = useState<Partial<Student>>({});
 
-  const student = students.find(s => s.id === selectedId);
+  const isAdmin = user.role === UserRole.ADMIN;
+  const rawStudent = students.find(s => s.id === selectedId);
+  
+  // Merged student data
+  const student = rawStudent ? { ...rawStudent, ...overrides } : null;
+
+  useEffect(() => {
+    // Reset overrides when student changes
+    setOverrides({});
+  }, [selectedId]);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const saveSettings = (newSettings: IDSettings) => {
+    setSettings(newSettings);
+    storage.set(ID_SETTINGS_KEY, newSettings);
+  };
+
+  const handleFileUpload = (type: 'logo' | 'signature', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        if (type === 'logo') saveSettings({ ...settings, customLogo: base64 });
+        else saveSettings({ ...settings, signature: base64 });
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDownloadPDF = async () => {
@@ -51,246 +105,286 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students }) => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in pb-10">
+    <div className="space-y-8 animate-fade-in pb-24">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-indigo-900 tracking-tighter">Identity Management</h1>
-          <p className="text-gray-500 font-medium italic">Generating premium security credentials for the Academy. 🪪</p>
+          <h1 className="text-3xl font-black text-indigo-900 tracking-tighter uppercase">Identity Design Studio</h1>
+          <p className="text-gray-500 font-medium italic">Customizing premium security credentials for the Academy. 🪪</p>
         </div>
-        {student && (
-          <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3">
+          {isAdmin && (
+            <button 
+              onClick={() => setIsEditMode(!isEditMode)}
+              className={`px-8 py-4 rounded-[2rem] font-black shadow-xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 ${isEditMode ? 'bg-amber-500 text-white' : 'bg-white text-indigo-600 border border-indigo-100'}`}
+            >
+              <i className={`fa-solid ${isEditMode ? 'fa-check' : 'fa-wand-magic-sparkles'}`}></i>
+              {isEditMode ? 'Finish Designing' : 'Enter Design Studio'}
+            </button>
+          )}
+          {student && (
             <button 
               disabled={isDownloading}
               onClick={handleDownloadPDF}
-              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[2rem] font-black shadow-xl shadow-indigo-100 transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 disabled:opacity-50"
+              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[2rem] font-black shadow-xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 disabled:opacity-50"
             >
-              <i className={`fa-solid ${isDownloading ? 'fa-spinner fa-spin' : 'fa-shield-halved'} text-xl`}></i>
-              {isDownloading ? 'Encrypting...' : 'Export High-Res ID'}
+              <i className={`fa-solid ${isDownloading ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i>
+              {isDownloading ? 'Exporting...' : 'Download ID'}
             </button>
-            <button 
-              onClick={handlePrint}
-              className="px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2rem] font-black shadow-xl shadow-emerald-100 transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95"
-            >
-              <i className="fa-solid fa-print text-xl"></i>
-              Direct Print
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </header>
 
-      <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-indigo-50 grid grid-cols-1 lg:grid-cols-3 gap-10">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-xs font-black text-indigo-400 uppercase tracking-widest ml-1">Select Active Student</label>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* SIDEBAR: SELECTION & CUSTOMIZATION */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-indigo-50">
+            <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-6">Hero Selection</h3>
             <select 
-              className="w-full px-6 py-4 rounded-2xl bg-indigo-50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none transition-all font-bold text-indigo-900 shadow-inner appearance-none"
+              className="w-full px-6 py-4 rounded-2xl bg-indigo-50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-bold text-indigo-900 shadow-inner appearance-none transition-all"
               value={selectedId}
               onChange={(e) => setSelectedId(e.target.value)}
             >
-              <option value="">Choose a Hero...</option>
-              {students.map(s => (
-                <option key={s.id} value={s.id}>{s.name} ({s.admissionNo})</option>
-              ))}
+              <option value="">Select a Student...</option>
+              {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.admissionNo})</option>)}
             </select>
           </div>
 
-          <div className="p-8 bg-amber-50 rounded-[2.5rem] border border-amber-100 relative overflow-hidden group">
-            <div className="relative z-10">
-               <h3 className="font-black text-amber-700 mb-4 flex items-center gap-3">
-                 <i className="fa-solid fa-certificate text-xl"></i>
-                 ID Standards
-               </h3>
-               <ul className="text-xs text-amber-800/80 space-y-4 font-bold leading-relaxed">
-                 <li className="flex gap-2">
-                    <span className="w-5 h-5 bg-amber-200 rounded-full flex items-center justify-center text-[8px] shrink-0">A</span>
-                    Vertical format: 54mm x 86mm (ISO/IEC 7810).
-                 </li>
-                 <li className="flex gap-2">
-                    <span className="w-5 h-5 bg-amber-200 rounded-full flex items-center justify-center text-[8px] shrink-0">B</span>
-                    Includes dynamic GR Number & QR link.
-                 </li>
-                 <li className="flex gap-2">
-                    <span className="w-5 h-5 bg-amber-200 rounded-full flex items-center justify-center text-[8px] shrink-0">C</span>
-                    Security pattern background for anti-forgery.
-                 </li>
-               </ul>
+          {isEditMode && isAdmin && (
+            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-indigo-50 space-y-8 animate-slide-up">
+              <div>
+                <h3 className="text-xs font-black text-amber-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                  <i className="fa-solid fa-palette"></i> Card Branding
+                </h3>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Academy Name</label>
+                    <input 
+                      className="w-full px-5 py-3 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none"
+                      value={settings.schoolName}
+                      onChange={e => saveSettings({...settings, schoolName: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Theme HEX Color</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="color"
+                        className="w-12 h-12 rounded-xl border-none cursor-pointer p-0"
+                        value={settings.themeColor}
+                        onChange={e => saveSettings({...settings, themeColor: e.target.value})}
+                      />
+                      <input 
+                        className="flex-1 px-5 py-3 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none uppercase"
+                        value={settings.themeColor}
+                        onChange={e => saveSettings({...settings, themeColor: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                      className="py-3 bg-indigo-50 text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all"
+                    >
+                      Change Logo
+                    </button>
+                    <button 
+                      onClick={() => document.getElementById('sign-upload')?.click()}
+                      className="py-3 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all"
+                    >
+                      Seal Image
+                    </button>
+                    <input id="logo-upload" type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload('logo', e)} />
+                    {/* FIX: Use 'signature' literal instead of 'sign' */}
+                    <input id="sign-upload" type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload('signature', e)} />
+                  </div>
+                </div>
+              </div>
+
+              {student && (
+                <div className="pt-6 border-t border-indigo-50">
+                  <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                    <i className="fa-solid fa-user-pen"></i> Card Detail Override
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Hero Display Name</label>
+                      <input 
+                        className="w-full px-5 py-3 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none"
+                        value={student.name}
+                        onChange={e => setOverrides({...overrides, name: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Grade</label>
+                        <input 
+                          className="w-full px-5 py-3 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none"
+                          value={student.grade}
+                          onChange={e => setOverrides({...overrides, grade: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Roll #</label>
+                        <input 
+                          className="w-full px-5 py-3 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none"
+                          value={student.rollNo}
+                          onChange={e => setOverrides({...overrides, rollNo: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setOverrides({})}
+                      className="w-full py-3 text-[9px] font-black text-rose-400 uppercase tracking-widest hover:text-rose-600"
+                    >
+                      Reset Overrides
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <i className="fa-solid fa-fingerprint absolute -bottom-6 -right-6 text-amber-100 text-8xl opacity-30 group-hover:scale-110 transition-transform"></i>
-          </div>
+          )}
         </div>
 
-        <div className="lg:col-span-2 flex flex-col items-center justify-center py-16 bg-gray-50/50 rounded-[4rem] border-4 border-dashed border-gray-100 relative overflow-hidden">
+        {/* WORKSPACE: LIVE PREVIEW */}
+        <div className="lg:col-span-8 flex flex-col items-center justify-center py-12 bg-gray-100/50 rounded-[4rem] border-4 border-dashed border-gray-200 relative overflow-hidden">
           {student ? (
             <div id="id-card-printable-container" className="flex flex-col items-center gap-12 p-10 bg-transparent animate-slide-up">
               <div id="id-card-printable" className="flex flex-col xl:flex-row gap-12 print:m-0 print:p-0">
                 
-                {/* PREMIER FRONT SIDE */}
-                <div className="w-[340px] h-[520px] bg-white rounded-[2.5rem] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.15)] overflow-hidden relative border-2 border-indigo-50 flex flex-col shrink-0">
+                {/* FRONT SIDE */}
+                <div className="w-[340px] h-[520px] bg-white rounded-[2.5rem] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.2)] overflow-hidden relative border-2 border-indigo-50 flex flex-col shrink-0">
                   
-                  {/* Security Wave Pattern Background */}
-                  <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+                  {/* Background Accents */}
+                  <div className="absolute inset-0 opacity-[0.05] pointer-events-none">
                      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                        <defs><pattern id="wave" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M0 20 Q10 10 20 20 T40 20" fill="none" stroke="#4F46E5" strokeWidth="1"/></pattern></defs>
-                        <rect width="100%" height="100%" fill="url(#wave)" />
+                        <defs><pattern id="id-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke={settings.themeColor} strokeWidth="1"/></pattern></defs>
+                        <rect width="100%" height="100%" fill="url(#id-grid)" />
                      </svg>
                   </div>
 
-                  {/* Header Section */}
-                  <div className="h-40 bg-[#1e1b4b] p-6 flex flex-col items-center justify-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -ml-16 -mb-16"></div>
+                  <div className="h-44 p-6 flex flex-col items-center justify-center relative overflow-hidden transition-colors duration-500" style={{ backgroundColor: settings.themeColor }}>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
                     
-                    <div className="bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 mb-3 relative z-10 shadow-lg">
-                        <Logo size="sm" className="brightness-200" />
+                    <div className="bg-white p-2 rounded-2xl border border-white/20 mb-3 relative z-10 shadow-xl overflow-hidden flex items-center justify-center w-14 h-14">
+                        {settings.customLogo ? (
+                          <img src={settings.customLogo} className="w-full h-full object-contain" alt="Custom Logo" />
+                        ) : (
+                          <Logo size="sm" />
+                        )}
                     </div>
                     <div className="text-center relative z-10">
-                        <h2 className="text-white font-black text-xl leading-none uppercase tracking-tighter">Digital Education</h2>
-                        <div className="flex items-center justify-center gap-2 mt-1">
-                           <div className="h-[1px] w-4 bg-amber-400"></div>
-                           <p className="text-amber-400 text-[9px] font-black uppercase tracking-[0.3em]">Excellence Defined</p>
-                           <div className="h-[1px] w-4 bg-amber-400"></div>
-                        </div>
+                        <h2 className="text-white font-black text-xl leading-none uppercase tracking-tighter">{settings.schoolName}</h2>
+                        <p className="text-amber-400 text-[8px] font-black uppercase tracking-[0.4em] mt-2">{settings.tagline}</p>
                     </div>
                   </div>
 
-                  {/* Body Content */}
                   <div className="flex-1 flex flex-col items-center px-8 pt-4 pb-6 relative z-10">
-                    
-                    {/* Floating Profile Photo */}
-                    <div className="relative -mt-16 mb-6">
-                       <div className="w-36 h-36 rounded-full bg-white p-1.5 shadow-[0_15px_30px_-10px_rgba(0,0,0,0.3)] relative z-10">
-                          <div className="w-full h-full rounded-full bg-gray-50 overflow-hidden border-2 border-indigo-50 flex items-center justify-center">
+                    <div className="relative -mt-20 mb-6">
+                       <div className="w-40 h-40 rounded-[2.5rem] bg-white p-2 shadow-2xl relative z-10">
+                          <div className="w-full h-full rounded-[1.8rem] bg-gray-50 overflow-hidden border-2 border-indigo-50 flex items-center justify-center group/photo">
                              {student.photo ? (
                                <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
                              ) : (
-                               <i className="fa-solid fa-user-ninja text-5xl text-indigo-100"></i>
+                               <i className="fa-solid fa-user-astronaut text-6xl text-indigo-100"></i>
                              )}
                           </div>
                        </div>
-                       {/* Identity Verification Mark */}
-                       <div className="absolute bottom-1 right-1 w-10 h-10 bg-emerald-500 text-white rounded-full border-4 border-white flex items-center justify-center text-xs shadow-lg z-20">
-                          <i className="fa-solid fa-check"></i>
+                       <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-emerald-500 text-white rounded-2xl border-4 border-white flex items-center justify-center shadow-lg z-20">
+                          <i className="fa-solid fa-shield-check"></i>
                        </div>
                     </div>
 
-                    <h3 className="text-2xl font-black text-indigo-950 text-center leading-tight mb-1">{student.name}</h3>
-                    <div className="inline-flex items-center bg-indigo-50 px-4 py-1.5 rounded-full mb-8">
-                       <span className="text-indigo-600 text-[10px] font-black uppercase tracking-widest">GRADE {student.grade} STANDARD</span>
+                    <h3 className="text-2xl font-black text-indigo-950 text-center leading-tight mb-1 uppercase tracking-tighter">{student.name}</h3>
+                    <div className="px-5 py-1.5 rounded-full mb-10 border-2" style={{ borderColor: settings.themeColor + '20', backgroundColor: settings.themeColor + '05' }}>
+                       <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: settings.themeColor }}>Class {student.grade} • Roll {student.rollNo}</span>
                     </div>
 
-                    <div className="w-full grid grid-cols-2 gap-y-4 gap-x-6 text-[10px]">
+                    <div className="w-full grid grid-cols-2 gap-y-6 gap-x-8 text-[10px] border-t border-indigo-50 pt-8">
                         <div className="space-y-1">
-                           <p className="font-black text-gray-400 uppercase tracking-widest">Admission No</p>
-                           <p className="font-black text-indigo-900 border-b border-indigo-100 pb-1">{student.admissionNo}</p>
+                           <p className="font-black text-gray-400 uppercase tracking-widest">Enrollment #</p>
+                           <p className="font-black text-indigo-900">{student.admissionNo}</p>
                         </div>
                         <div className="space-y-1">
-                           <p className="font-black text-gray-400 uppercase tracking-widest">Roll Number</p>
-                           <p className="font-black text-indigo-900 border-b border-indigo-100 pb-1">{student.rollNo}</p>
-                        </div>
-                        <div className="space-y-1">
-                           <p className="font-black text-gray-400 uppercase tracking-widest">GR Number</p>
-                           <p className="font-black text-amber-600 border-b border-amber-100 pb-1">{student.grNo || 'GR-PENDING'}</p>
-                        </div>
-                        <div className="space-y-1">
-                           <p className="font-black text-gray-400 uppercase tracking-widest">DOB</p>
-                           <p className="font-black text-indigo-900 border-b border-indigo-100 pb-1">{student.dob}</p>
+                           <p className="font-black text-gray-400 uppercase tracking-widest">Birth Registry</p>
+                           <p className="font-black text-indigo-900">{student.dob}</p>
                         </div>
                     </div>
                   </div>
 
-                  {/* Vertical Aesthetic Barcode Footer */}
-                  <div className="h-16 bg-gray-50 border-t border-gray-100 flex items-center justify-between px-8">
-                      <div className="flex gap-0.5 items-center">
-                         {[1,3,1,2,4,1,3,2,1,4,2].map((w,i) => (
-                           <div key={i} className="bg-gray-300 h-6" style={{ width: `${w}px` }}></div>
-                         ))}
-                         <span className="text-[7px] font-black text-gray-300 ml-2 uppercase">Official Doc</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                         <div className="text-right">
-                            <p className="text-[7px] font-black text-gray-400 uppercase leading-none">Security Issued</p>
-                            <p className="text-[8px] font-black text-indigo-900 leading-none mt-0.5">MARCH 2024</p>
-                         </div>
-                         <div className="w-8 h-8 bg-white border border-gray-200 rounded-lg p-1">
+                  <div className="h-20 bg-gray-50 border-t border-gray-100 flex items-center justify-between px-10">
+                      <div className="flex items-center gap-4">
+                         <div className="w-10 h-10 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
                             <img src={`https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=${student.id}`} className="w-full h-full grayscale" alt="ID QR" />
                          </div>
+                         <div className="flex flex-col">
+                            <p className="text-[7px] font-black text-gray-400 uppercase leading-none">Status</p>
+                            <p className="text-[9px] font-black text-emerald-500 uppercase leading-none mt-1">Authorized</p>
+                         </div>
+                      </div>
+                      <div className="text-right">
+                         {settings.signature ? (
+                           <img src={settings.signature} className="h-10 mx-auto mix-blend-multiply" alt="Seal" />
+                         ) : (
+                           <div className="h-1 w-24 bg-gray-200 mb-1"></div>
+                         )}
+                         <p className="text-[8px] font-black text-indigo-900 uppercase">Academy Seal</p>
                       </div>
                   </div>
                 </div>
 
-                {/* PREMIER BACK SIDE */}
-                <div className="w-[340px] h-[520px] bg-[#1e1b4b] rounded-[2.5rem] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.15)] overflow-hidden relative p-10 flex flex-col text-white shrink-0">
+                {/* BACK SIDE */}
+                <div className="w-[340px] h-[520px] rounded-[2.5rem] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.2)] overflow-hidden relative p-10 flex flex-col text-white shrink-0 transition-colors duration-500" style={{ backgroundColor: settings.themeColor }}>
+                  <div className="absolute top-0 left-0 w-full h-1.5 bg-amber-400"></div>
                   
-                  {/* Decorative Elements */}
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 via-indigo-400 to-purple-400"></div>
-                  
-                  <div className="flex-1 space-y-8 relative z-10">
+                  <div className="flex-1 space-y-10 relative z-10 pt-4">
                       <div>
-                        <div className="flex items-center gap-3 mb-3">
-                           <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center"><i className="fa-solid fa-users-rays text-amber-400 text-xs"></i></div>
-                           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Parental Information</h4>
+                        <div className="flex items-center gap-3 mb-4">
+                           <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center border border-white/5"><i className="fa-solid fa-house-chimney-user text-amber-400 text-xs"></i></div>
+                           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Parental Identity</h4>
                         </div>
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                           <p className="font-black text-lg leading-tight text-white mb-1">{student.parentName}</p>
-                           <p className="text-indigo-300 text-xs font-bold tracking-widest">{student.phone}</p>
+                        <div className="pl-12">
+                           <p className="font-black text-xl leading-tight text-white mb-1 uppercase tracking-tighter">{student.parentName}</p>
+                           <p className="text-amber-400 text-xs font-bold tracking-widest">+91 {student.phone}</p>
                         </div>
                       </div>
 
-                      {student.aadharNo && (
-                        <div>
-                          <div className="flex items-center gap-3 mb-3">
-                             <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center"><i className="fa-solid fa-id-card text-amber-400 text-xs"></i></div>
-                             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">UIDAI Registry</h4>
-                          </div>
-                          <p className="font-black text-xl text-amber-300 tracking-[0.25em] ml-2">{student.aadharNo.match(/.{1,4}/g)?.join(' ')}</p>
-                        </div>
-                      )}
-
                       <div>
-                        <div className="flex items-center gap-3 mb-3">
-                           <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center"><i className="fa-solid fa-location-dot text-amber-400 text-xs"></i></div>
-                           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Official Residence</h4>
+                        <div className="flex items-center gap-3 mb-4">
+                           <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center border border-white/5"><i className="fa-solid fa-map-location-dot text-amber-400 text-xs"></i></div>
+                           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-200">Residence Address</h4>
                         </div>
-                        <p className="text-xs font-medium leading-relaxed italic opacity-80 px-2 line-clamp-3">
-                           {student.address || 'Formal address verification is currently pending in Academy archives.'}
+                        <p className="pl-12 text-xs font-medium leading-relaxed italic opacity-70 line-clamp-4">
+                           {student.address || 'Address verification pending in Academy archives for current academic session.'}
                         </p>
                       </div>
 
-                      <div className="bg-rose-500/10 border-l-4 border-rose-500 p-5 rounded-r-2xl">
+                      <div className="mt-auto bg-white/5 border border-white/10 p-6 rounded-[2rem] backdrop-blur-md">
                         <div className="flex items-center gap-2 mb-2">
-                           <i className="fa-solid fa-circle-exclamation text-rose-500 animate-pulse"></i>
-                           <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-rose-200">Emergency Protocol</h4>
+                           <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>
+                           <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-rose-200">Emergency Protocol</h4>
                         </div>
                         <p className="font-black text-2xl text-white tracking-tighter">{student.emergencyContact}</p>
                       </div>
                   </div>
 
-                  <div className="mt-auto pt-8 border-t border-white/10 flex items-center justify-between relative z-10">
-                      <div className="flex flex-col">
-                        <div className="h-10 flex items-center justify-start mb-2">
-                           <div className="w-24 h-px bg-white/20 mb-2"></div>
-                           <p className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-300">ADMIN SEAL</p>
-                        </div>
-                      </div>
-                      <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-2xl relative">
-                        <Logo size="sm" className="opacity-80 scale-110" />
-                        <div className="absolute inset-0 border-4 border-dashed border-indigo-200 rounded-full animate-spin-slow opacity-20"></div>
-                      </div>
+                  <div className="mt-12 pt-8 border-t border-white/10 flex items-center justify-between relative z-10 opacity-30">
+                      <Logo size="sm" className="brightness-200 grayscale" />
+                      <p className="text-[7px] font-black uppercase tracking-[0.5em]">System ID: {student.id.slice(0,8)}</p>
                   </div>
 
-                  {/* Decorative Background Mark */}
-                  <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl"></div>
-                  <div className="absolute top-[20%] left-[-10%] w-40 h-40 bg-purple-500/5 rounded-full blur-3xl"></div>
+                  {/* Aesthetic patterns */}
+                  <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-center opacity-30 select-none">
-              <div className="w-36 h-36 bg-white rounded-[3.5rem] shadow-inner flex items-center justify-center text-gray-200 text-7xl mx-auto mb-10 ring-8 ring-white/50 animate-pulse">
-                <i className="fa-solid fa-id-badge"></i>
+            <div className="text-center opacity-30 py-40 select-none">
+              <div className="w-40 h-40 bg-white rounded-[4rem] shadow-inner flex items-center justify-center text-indigo-200 text-8xl mx-auto mb-10 ring-8 ring-white animate-pulse">
+                <i className="fa-solid fa-passport"></i>
               </div>
-              <p className="text-3xl font-black text-indigo-900 tracking-tighter">Identity Preview</p>
-              <p className="font-bold text-indigo-400 mt-2 italic max-w-sm mx-auto">Please select a student hero from the registry to initialize the credential engine.</p>
+              <p className="text-4xl font-black text-indigo-900 tracking-tighter uppercase">Preview Engine</p>
+              <p className="font-bold text-indigo-400 mt-3 italic max-w-sm mx-auto">Initialize a Hero from the registry to start the high-fidelity rendering process.</p>
             </div>
           )}
         </div>
@@ -300,22 +394,11 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students }) => {
         @media print {
           body * { visibility: hidden; }
           #id-card-printable, #id-card-printable * { visibility: visible; }
-          #id-card-printable {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 40px;
-          }
+          #id-card-printable { position: absolute; left: 0; top: 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 40px; }
           @page { size: auto; margin: 0; }
         }
-        .animate-spin-slow { animation: spin 20s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-slide-up { animation: slideUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
       `}</style>
     </div>
   );

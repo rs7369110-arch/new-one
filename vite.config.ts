@@ -18,7 +18,9 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.SUPABASE_URL': JSON.stringify('https://exgexggudhobhsoqxndq.supabase.co'),
+        'process.env.SUPABASE_ANON_KEY': JSON.stringify('sb_publishable_GSi-EsAl3iUtTIygfIFsDw_FlkLk3Uh')
       },
       resolve: {
         alias: {

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language, FeeTransaction } from './types';
 import { storage, DB_KEYS } from './db';
+import { dbService } from './services/supabase';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
@@ -41,7 +42,7 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: 'success' | 'error' | 'info' | 'broadcast' | 'notice' | 'gallery';
+  type: 'success' | 'error' | 'info' | 'broadcast' | 'notice' | 'gallery' | 'sync';
 }
 
 const App: React.FC = () => {
@@ -50,6 +51,7 @@ const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [currentLang, setCurrentLang] = useState<Language>(storage.get(DB_KEYS.LANGUAGE as any, Language.EN));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const [students, setStudents] = useState<Student[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -71,11 +73,24 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [lastViewed, setLastViewed] = useState<Record<string, number>>(storage.get(DB_KEYS.LAST_VIEWED, {}));
 
-  // Initial Load
+  const triggerNotification = useCallback((title: string, message: string, type: Notification['type'] = 'info') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    const newNotif = { id, title, message, type };
+    setNotifications(prev => [newNotif, ...prev]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4500);
+  }, []);
+
+  // INITIAL LOAD & SYNC
   useEffect(() => {
     const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
-    if (savedUser) setCurrentUser(savedUser);
+    if (savedUser) {
+      setCurrentUser(savedUser);
+      if (savedUser.role === UserRole.PARENT) setActiveTab('dashboard');
+    }
 
+    // 1. Load from LocalStorage (Instant UI)
     setStudents(storage.get(DB_KEYS.STUDENTS, []));
     setNotices(storage.get(DB_KEYS.NOTICES, []));
     setHomeworks(storage.get(DB_KEYS.HOMEWORK, []));
@@ -92,16 +107,52 @@ const App: React.FC = () => {
     setFeeStructures(storage.get(DB_KEYS.FEE_STRUCTURES, []));
     setCustomTemplates(storage.get(DB_KEYS.CUSTOM_TEMPLATES, []));
     setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
-  }, []);
 
-  const triggerNotification = (title: string, message: string, type: Notification['type'] = 'info') => {
-    const id = Math.random().toString(36).substr(2, 9);
-    const newNotif = { id, title, message, type };
-    setNotifications(prev => [newNotif, ...prev]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4500);
-  };
+    // 2. Fetch from Supabase in Background
+    const syncAll = async () => {
+      try {
+        setIsSyncing(true);
+        const [
+          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData
+        ] = await Promise.all([
+          dbService.fetchAll('students'),
+          dbService.fetchAll('notices'),
+          dbService.fetchAll('homework'),
+          dbService.fetchAll('attendance'),
+          dbService.fetchAll('teachers'),
+          dbService.fetchAll('food_chart'),
+          dbService.fetchAll('marks'),
+          dbService.fetchAll('curriculum'),
+          dbService.fetchAll('messages'),
+          dbService.fetchAll('gallery'),
+          dbService.fetchAll('leaves'),
+          dbService.fetchAll('fee_structures'),
+          dbService.fetchAll('fee_transactions'),
+        ]);
+
+        if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
+        if (nData.length) { setNotices(nData); storage.set(DB_KEYS.NOTICES, nData); }
+        if (hData.length) { setHomeworks(hData); storage.set(DB_KEYS.HOMEWORK, hData); }
+        if (aData.length) { setAttendance(aData); storage.set(DB_KEYS.ATTENDANCE, aData); }
+        if (tData.length) { setTeachers(tData); storage.set(DB_KEYS.TEACHERS, tData); }
+        if (fData.length) { setFoodChart(fData); storage.set(DB_KEYS.FOOD_CHART, fData); }
+        if (mData.length) { setMarks(mData); storage.set(DB_KEYS.MARKS, mData); }
+        if (cData.length) { setCurriculum(cData); storage.set(DB_KEYS.CURRICULUM, cData); }
+        if (msgData.length) { setMessages(msgData); storage.set(DB_KEYS.MESSAGES, msgData); }
+        if (galData.length) { setGallery(galData); storage.set(DB_KEYS.GALLERY, galData); }
+        if (lData.length) { setLeaves(lData); storage.set(DB_KEYS.LEAVES, lData); }
+        if (fsData.length) { setFeeStructures(fsData); storage.set(DB_KEYS.FEE_STRUCTURES, fsData); }
+        if (ftData.length) { setFeeTransactions(ftData); storage.set(DB_KEYS.FEE_TRANSACTIONS, ftData); }
+        
+        setIsSyncing(false);
+      } catch (err) {
+        console.warn("Offline Mode: Supabase sync failed. Using local data.", err);
+        setIsSyncing(false);
+      }
+    };
+
+    syncAll();
+  }, []);
 
   const updateViewedStamp = (tab: string) => {
     const newStamps = { ...lastViewed, [tab]: Date.now() };
@@ -129,12 +180,14 @@ const App: React.FC = () => {
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     storage.set(DB_KEYS.USER, user);
-    triggerNotification('Authorized', `Welcome Hero, ${user.name}`, 'success');
+    const welcomeMsg = user.role === UserRole.PARENT ? `Welcome to Parent Portal, ${user.name}` : `Authorized Access: ${user.name}`;
+    triggerNotification('Session Initialized', welcomeMsg, 'success');
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     storage.clear(DB_KEYS.USER);
+    triggerNotification('Security Check', 'You have been logged out safely.', 'info');
   };
 
   const toggleTheme = () => {
@@ -142,33 +195,37 @@ const App: React.FC = () => {
   };
 
   // ROBUST SYNC WRAPPER
-  const createSyncUpdate = <T,>(key: string, setter: React.Dispatch<React.SetStateAction<T>>) => {
-    return (newData: T) => {
+  const createSyncUpdate = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T>>) => {
+    return async (newData: T) => {
+      // Update UI & LocalStorage Immediately (Speed)
       setter(newData);
       storage.set(key, newData);
+
+      // Background Sync to Supabase
+      try {
+        await dbService.upsert(table, newData);
+      } catch (err) {
+        console.error(`Sync Error [${table}]:`, err);
+        triggerNotification('Sync Delayed', 'Changes saved locally. Will sync when online.', 'info');
+      }
     };
   };
 
-  const updateNotices = (n: Notice[]) => {
-    setNotices(n);
-    storage.set(DB_KEYS.NOTICES, n);
-    triggerNotification('Database Updated', 'Notices have been synced to local storage.', 'notice');
-  };
-
-  const updateStudents = createSyncUpdate(DB_KEYS.STUDENTS, setStudents);
-  const updateTeachers = createSyncUpdate(DB_KEYS.TEACHERS, setTeachers);
-  const updateFoodChart = createSyncUpdate(DB_KEYS.FOOD_CHART, setFoodChart);
-  const updateMarks = createSyncUpdate(DB_KEYS.MARKS, setMarks);
-  const updateAvailableSubjects = createSyncUpdate(DB_KEYS.SUBJECT_LIST, setAvailableSubjects);
-  const updateCurriculum = createSyncUpdate(DB_KEYS.CURRICULUM, setCurriculum);
-  const updateMessages = createSyncUpdate(DB_KEYS.MESSAGES, setMessages);
-  const updateGallery = createSyncUpdate(DB_KEYS.GALLERY, setGallery);
-  const updateLeaves = createSyncUpdate(DB_KEYS.LEAVES, setLeaves);
-  const updateAttendance = createSyncUpdate(DB_KEYS.ATTENDANCE, setAttendance);
-  const updateHomework = createSyncUpdate(DB_KEYS.HOMEWORK, setHomeworks);
-  const updateFeeStructures = createSyncUpdate(DB_KEYS.FEE_STRUCTURES, setFeeStructures);
-  const updateFeeTransactions = createSyncUpdate(DB_KEYS.FEE_TRANSACTIONS, setFeeTransactions);
-  const updateCustomTemplates = createSyncUpdate(DB_KEYS.CUSTOM_TEMPLATES, setCustomTemplates);
+  const updateNotices = createSyncUpdate(DB_KEYS.NOTICES, 'notices', setNotices);
+  const updateStudents = createSyncUpdate(DB_KEYS.STUDENTS, 'students', setStudents);
+  const updateTeachers = createSyncUpdate(DB_KEYS.TEACHERS, 'teachers', setTeachers);
+  const updateFoodChart = createSyncUpdate(DB_KEYS.FOOD_CHART, 'food_chart', setFoodChart);
+  const updateMarks = createSyncUpdate(DB_KEYS.MARKS, 'marks', setMarks);
+  const updateAvailableSubjects = createSyncUpdate(DB_KEYS.SUBJECT_LIST, 'subject_list', setAvailableSubjects); // Subject list might remain local or use its own logic
+  const updateCurriculum = createSyncUpdate(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
+  const updateMessages = createSyncUpdate(DB_KEYS.MESSAGES, 'messages', setMessages);
+  const updateGallery = createSyncUpdate(DB_KEYS.GALLERY, 'gallery', setGallery);
+  const updateLeaves = createSyncUpdate(DB_KEYS.LEAVES, 'leaves', setLeaves);
+  const updateAttendance = createSyncUpdate(DB_KEYS.ATTENDANCE, 'attendance', setAttendance);
+  const updateHomework = createSyncUpdate(DB_KEYS.HOMEWORK, 'homework', setHomeworks);
+  const updateFeeStructures = createSyncUpdate(DB_KEYS.FEE_STRUCTURES, 'fee_structures', setFeeStructures);
+  const updateFeeTransactions = createSyncUpdate(DB_KEYS.FEE_TRANSACTIONS, 'fee_transactions', setFeeTransactions);
+  const updateCustomTemplates = createSyncUpdate(DB_KEYS.CUSTOM_TEMPLATES, 'custom_templates', setCustomTemplates);
 
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
@@ -196,7 +253,7 @@ const App: React.FC = () => {
       case 'homework': return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} />;
       case 'fees': return <FeesManager user={currentUser} students={students} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} />;
       case 'fees-setup': return <FeesManager user={currentUser} students={students} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" />;
-      case 'icards': return <ICardGenerator students={students} />;
+      case 'icards': return <ICardGenerator students={students} user={currentUser} />;
       default: return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} />;
     }
   };
@@ -206,6 +263,7 @@ const App: React.FC = () => {
       case 'success': return 'fa-circle-check text-emerald-500';
       case 'error': return 'fa-circle-exclamation text-rose-500';
       case 'notice': return 'fa-bolt-lightning text-amber-500';
+      case 'sync': return 'fa-arrows-rotate fa-spin text-indigo-500';
       default: return 'fa-bell text-blue-500';
     }
   };
@@ -216,6 +274,14 @@ const App: React.FC = () => {
       <div className="fixed inset-0 pointer-events-none z-0">
          <div className={`absolute top-[-10%] left-[-5%] w-[60%] h-[70%] rounded-full blur-[120px] transition-colors duration-1000 ${isDarkMode ? 'bg-indigo-900/20' : 'bg-indigo-500/10'}`}></div>
       </div>
+
+      {/* Syncing Status Indicator */}
+      {isSyncing && (
+        <div className="fixed top-24 right-6 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-notif-in border border-indigo-400">
+           <i className="fa-solid fa-cloud-arrow-down fa-bounce text-xs"></i>
+           <span className="text-[10px] font-black uppercase tracking-widest">Syncing Cloud</span>
+        </div>
+      )}
 
       {/* Dynamic Notifications */}
       <div className="fixed top-6 right-6 z-[5000] flex flex-col gap-3 w-80 pointer-events-none">
