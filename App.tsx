@@ -113,7 +113,7 @@ const App: React.FC = () => {
       try {
         setIsSyncing(true);
         const [
-          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData
+          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData
         ] = await Promise.all([
           dbService.fetchAll('students'),
           dbService.fetchAll('notices'),
@@ -128,6 +128,7 @@ const App: React.FC = () => {
           dbService.fetchAll('leaves'),
           dbService.fetchAll('fee_structures'),
           dbService.fetchAll('fee_transactions'),
+          dbService.fetchAll('custom_templates'),
         ]);
 
         if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
@@ -143,6 +144,7 @@ const App: React.FC = () => {
         if (lData.length) { setLeaves(lData); storage.set(DB_KEYS.LEAVES, lData); }
         if (fsData.length) { setFeeStructures(fsData); storage.set(DB_KEYS.FEE_STRUCTURES, fsData); }
         if (ftData.length) { setFeeTransactions(ftData); storage.set(DB_KEYS.FEE_TRANSACTIONS, ftData); }
+        if (ctData.length) { setCustomTemplates(ctData); storage.set(DB_KEYS.CUSTOM_TEMPLATES, ctData); }
         
         setIsSyncing(false);
       } catch (err) {
@@ -216,7 +218,7 @@ const App: React.FC = () => {
   const updateTeachers = createSyncUpdate(DB_KEYS.TEACHERS, 'teachers', setTeachers);
   const updateFoodChart = createSyncUpdate(DB_KEYS.FOOD_CHART, 'food_chart', setFoodChart);
   const updateMarks = createSyncUpdate(DB_KEYS.MARKS, 'marks', setMarks);
-  const updateAvailableSubjects = createSyncUpdate(DB_KEYS.SUBJECT_LIST, 'subject_list', setAvailableSubjects); // Subject list might remain local or use its own logic
+  const updateAvailableSubjects = createSyncUpdate(DB_KEYS.SUBJECT_LIST, 'subject_list', setAvailableSubjects); 
   const updateCurriculum = createSyncUpdate(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
   const updateMessages = createSyncUpdate(DB_KEYS.MESSAGES, 'messages', setMessages);
   const updateGallery = createSyncUpdate(DB_KEYS.GALLERY, 'gallery', setGallery);

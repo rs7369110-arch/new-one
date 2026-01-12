@@ -156,6 +156,7 @@ export interface SchoolMessage {
 }
 
 export interface AttendanceRecord {
+  id?: number; // Added for Supabase sync tracking
   date: string;
   studentId: string;
   status: 'PRESENT' | 'ABSENT' | 'LATE';

@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Hardcoding credentials directly to ensure reliable initialization
+// Credentials for Digital Education Academy
 const supabaseUrl = 'https://exgexggudhobhsoqxndq.supabase.co';
 const supabaseAnonKey = 'sb_publishable_GSi-EsAl3iUtTIygfIFsDw_FlkLk3Uh';
 
@@ -12,7 +12,6 @@ const toSnakeCase = (obj: any) => {
   if (!obj || typeof obj !== 'object') return obj;
   const result: any = {};
   for (const key in obj) {
-    // Only convert actual keys, not inherited properties
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
       result[snakeKey] = obj[key];
@@ -53,8 +52,14 @@ export const dbService = {
       const dataToPush = Array.isArray(payload) 
         ? payload.map(item => toSnakeCase(item)) 
         : toSnakeCase(payload);
-        
-      const { error } = await supabase.from(table).upsert(dataToPush);
+      
+      // Determine which column to use for handling conflicts based on the table
+      let onConflict = 'id';
+      if (table === 'food_chart') onConflict = 'day';
+      if (table === 'fee_structures') onConflict = 'grade';
+      if (table === 'attendance') onConflict = 'date,student_id'; // Matching our UNIQUE constraint in SQL
+
+      const { error } = await supabase.from(table).upsert(dataToPush, { onConflict });
       if (error) throw error;
     } catch (err) {
       console.error(`Sync Error [${table}]:`, err);
@@ -64,7 +69,9 @@ export const dbService = {
 
   async delete(table: string, id: string) {
     try {
-      const { error } = await supabase.from(table).delete().eq('id', id);
+      // For most tables, PK is 'id'. For special ones, it might be different.
+      const pk = (table === 'food_chart') ? 'day' : (table === 'fee_structures' ? 'grade' : 'id');
+      const { error } = await supabase.from(table).delete().eq(pk, id);
       if (error) throw error;
     } catch (err) {
       console.error(`Delete Error [${table}]:`, err);
