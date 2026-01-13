@@ -233,6 +233,30 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Mobile Nav Header */}
+      <div className={`md:hidden flex items-center justify-between px-6 py-4 border-b shrink-0 z-[2000] ${isDarkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
+         <div className="flex items-center gap-3">
+            <button 
+               onClick={() => setIsSidebarOpen(true)}
+               className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}
+            >
+               <i className="fa-solid fa-bars-staggered"></i>
+            </button>
+            <div className="flex flex-col">
+               <span className={`font-black text-xs tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>DIGITAL EDU</span>
+               <span className={`text-[7px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Academy Node</span>
+            </div>
+         </div>
+         <div className="flex items-center gap-3">
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${isDarkMode ? 'text-amber-400 bg-amber-400/10' : 'text-indigo-600 bg-indigo-50'}`}>
+               <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+            </button>
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-lg ${isDarkMode ? 'bg-indigo-600' : 'bg-indigo-500'}`}>
+               {currentUser.name.charAt(0)}
+            </div>
+         </div>
+      </div>
+
       <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={() => { setCurrentUser(null); storage.clear(DB_KEYS.USER); }} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
       <main className="flex-1 overflow-y-auto p-4 md:p-12 relative z-10 custom-scrollbar">
