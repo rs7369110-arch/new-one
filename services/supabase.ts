@@ -1,9 +1,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Credentials for Digital Education Academy
-const supabaseUrl = 'https://exgexggudhobhsoqxndq.supabase.co';
-const supabaseAnonKey = 'sb_publishable_GSi-EsAl3iUtTIygfIFsDw_FlkLk3Uh';
+// These are defined in vite.config.ts for deployment stability
+const supabaseUrl = process.env.SUPABASE_URL || 'https://exgexggudhobhsoqxndq.supabase.co';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'sb_publishable_GSi-EsAl3iUtTIygfIFsDw_FlkLk3Uh';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -57,7 +57,6 @@ export const dbService = {
     try {
       let dataToPush: any;
 
-      // Special handling for the subjects list which is string[]
       if (table === 'subject_list') {
         dataToPush = { id: 'current_subjects', list: payload };
       } else if (Array.isArray(payload)) {
@@ -69,6 +68,7 @@ export const dbService = {
       let onConflict = 'id';
       if (table === 'food_chart') onConflict = 'day';
       if (table === 'fee_structures') onConflict = 'grade';
+      // Important: Attendance uses a composite unique key in our SQL
       if (table === 'attendance') onConflict = 'date,student_id';
 
       const { error } = await supabase.from(table).upsert(dataToPush, { onConflict });

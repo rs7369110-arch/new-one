@@ -59,16 +59,17 @@ const ExamEntry: React.FC<ExamEntryProps> = ({ user, students, marks, onUpdateMa
   const handleSaveAll = () => {
     const updatedMarks = [...marks];
     
+    // Explicitly iterate over grid data entries and cast values to resolve type errors.
     Object.entries(gridData).forEach(([studentId, subjects]) => {
       const existingIdx = updatedMarks.findIndex(m => m.studentId === studentId && m.term === selectedTerm);
       
       const formattedSubjects: any = {};
       Object.entries(subjects).forEach(([subName, scores]) => {
-        // Fixed: Cast scores to avoid 'unknown' errors when calculating total
+        // Cast scores to specific structure to ensure property access on theory and practical works correctly.
         const s = scores as { theory: number; practical: number };
         formattedSubjects[subName] = {
           ...s,
-          total: s.theory + s.practical,
+          total: (s.theory || 0) + (s.practical || 0),
           isLocked: false // Can be locked by Admin separately
         };
       });
@@ -98,7 +99,9 @@ const ExamEntry: React.FC<ExamEntryProps> = ({ user, students, marks, onUpdateMa
   const calculateStudentStats = (studentId: string) => {
     const studentSubjects = gridData[studentId] || {};
     let totalObtained = 0;
-    Object.values(studentSubjects).forEach(s => {
+    // Iterate over subject scores and cast to a concrete type to safely access numeric fields.
+    Object.values(studentSubjects).forEach(scores => {
+      const s = scores as { theory: number; practical: number };
       totalObtained += (s.theory + s.practical);
     });
     const maxMarks = availableSubjects.length * 100;
