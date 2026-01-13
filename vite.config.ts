@@ -19,8 +19,8 @@ export default defineConfig(({ mode }) => {
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.SUPABASE_URL': JSON.stringify('https://exgexggudhobhsoqxndq.supabase.co'),
-        'process.env.SUPABASE_ANON_KEY': JSON.stringify('sb_publishable_GSi-EsAl3iUtTIygfIFsDw_FlkLk3Uh')
+        'process.env.SUPABASE_URL': JSON.stringify('https://vufysvncrrmyheyyyysu.supabase.co'),
+        'process.env.SUPABASE_ANON_KEY': JSON.stringify('sb_publishable_sIc1FTJ4veBw0vx6rJkO8w_r4km2EiM')
       },
       resolve: {
         alias: {

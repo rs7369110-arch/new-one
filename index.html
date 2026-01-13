@@ -39,10 +39,11 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-        console.log('SW Registered', reg);
+      // Using relative path './sw.js' to ensure correct origin resolution in sandboxed environments
+      navigator.serviceWorker.register('./sw.js', { scope: './' }).then(reg => {
+        console.log('SW Registered Successfully', reg.scope);
       }).catch(err => {
-        console.log('SW registration failed', err);
+        console.warn('SW registration bypassed or failed due to environment restrictions:', err.message);
       });
     });
   }

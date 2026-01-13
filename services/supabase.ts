@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // These are defined in vite.config.ts for deployment stability
-const supabaseUrl = process.env.SUPABASE_URL || 'https://exgexggudhobhsoqxndq.supabase.co';
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'sb_publishable_GSi-EsAl3iUtTIygfIFsDw_FlkLk3Uh';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://vufysvncrrmyheyyyysu.supabase.co';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'sb_publishable_sIc1FTJ4veBw0vx6rJkO8w_r4km2EiM';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

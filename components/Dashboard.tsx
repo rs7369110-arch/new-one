@@ -190,7 +190,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bento-card p-5 rounded-[2rem]">
+        {/* Added min-w-0 to fix Recharts width issues in grid layouts */}
+        <div className="lg:col-span-2 bento-card p-5 rounded-[2rem] min-w-0">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-[10px]">
@@ -200,9 +201,10 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="text-[10px] font-bold text-slate-500">{t.analyticsLive}</div>
           </div>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} layout="vertical" margin={{ left: 0 }}>
+          {/* Explicit height and min-width container for Recharts stability */}
+          <div className="h-48 w-full relative">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 20 }}>
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: isDarkMode ? '#64748b' : '#94a3b8', fontSize: 9, fontWeight: 900}} width={70} />
                 <Tooltip contentStyle={{ background: isDarkMode ? '#1e293b' : '#ffffff', borderRadius: '12px', border: 'none', fontSize: '10px', fontWeight: 'bold' }} />
@@ -214,7 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="bento-card p-5 rounded-[2rem] flex flex-col">
+        <div className="bento-card p-5 rounded-[2rem] flex flex-col min-w-0">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center text-[10px]">
                <i className="fa-solid fa-bolt"></i>
