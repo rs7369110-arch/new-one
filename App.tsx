@@ -87,7 +87,6 @@ const App: React.FC = () => {
     const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
     if (savedUser) setCurrentUser(savedUser);
 
-    // 1. Load from LocalStorage (Instant UI)
     setStudents(storage.get(DB_KEYS.STUDENTS, []));
     setNotices(storage.get(DB_KEYS.NOTICES, []));
     setHomeworks(storage.get(DB_KEYS.HOMEWORK, []));
@@ -105,7 +104,6 @@ const App: React.FC = () => {
     setCustomTemplates(storage.get(DB_KEYS.CUSTOM_TEMPLATES, []));
     setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
 
-    // 2. Fetch from Supabase in Background
     const syncAll = async () => {
       try {
         setIsSyncing(true);
@@ -225,7 +223,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`flex flex-col md:flex-row h-screen overflow-hidden relative transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
+    <div className={`flex flex-col md:flex-row h-screen h-[100dvh] overflow-hidden relative transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
       {isSyncing && (
         <div className="fixed top-24 right-6 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-bounce border border-indigo-400">
            <i className="fa-solid fa-cloud-arrow-down text-xs"></i>
@@ -259,8 +257,8 @@ const App: React.FC = () => {
 
       <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={() => { setCurrentUser(null); storage.clear(DB_KEYS.USER); }} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       
-      <main className="flex-1 overflow-y-auto p-4 md:p-12 relative z-10 custom-scrollbar">
-        <div className="max-w-7xl mx-auto">{renderContent()}</div>
+      <main className="flex-1 overflow-y-auto mobile-scroll p-4 md:p-12 relative z-10 custom-scrollbar">
+        <div className="max-w-7xl mx-auto pb-10">{renderContent()}</div>
       </main>
     </div>
   );
