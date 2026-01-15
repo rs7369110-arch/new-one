@@ -1,12 +1,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Student, UserRole, User } from '../types';
+import { Student, UserRole, User, SchoolBranding } from '../types';
 import Logo from './Logo';
 import { storage, DB_KEYS } from '../db';
 
 interface ICardGeneratorProps {
   students: Student[];
   user: User;
+  branding: SchoolBranding;
 }
 
 // Global settings key for ID card design
@@ -20,25 +21,34 @@ interface IDSettings {
   signature: string | null;
 }
 
-const DEFAULT_SETTINGS: IDSettings = {
-  schoolName: 'Digital Education',
-  tagline: 'Excellence Defined',
-  themeColor: '#1e1b4b', // Deep Indigo
-  customLogo: null,
-  signature: null
-};
-
 // Declare html2pdf for TypeScript
 declare var html2pdf: any;
 
-const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user }) => {
+const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, branding }) => {
   const [selectedId, setSelectedId] = useState<string>('');
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   
-  // Design State
-  const [settings, setSettings] = useState<IDSettings>(storage.get(ID_SETTINGS_KEY, DEFAULT_SETTINGS));
+  // Design State - Merge Global Branding with local overrides if needed
+  const [settings, setSettings] = useState<IDSettings>({
+    schoolName: branding.name || 'Academy',
+    tagline: branding.tagline || 'Excellence Defined',
+    themeColor: branding.themeColor || '#1e1b4b',
+    customLogo: branding.logo || null,
+    // Added type casting to resolve 'signature' property error on empty object
+    signature: (storage.get(ID_SETTINGS_KEY, {}) as any).signature || null
+  });
   
+  // Update settings if global branding changes
+  useEffect(() => {
+    setSettings(prev => ({
+      ...prev,
+      schoolName: branding.name,
+      tagline: branding.tagline,
+      customLogo: branding.logo
+    }));
+  }, [branding]);
+
   // Student Override State (for temporary card edits)
   const [overrides, setOverrides] = useState<Partial<Student>>({});
 
@@ -52,10 +62,6 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user }) => {
     // Reset overrides when student changes
     setOverrides({});
   }, [selectedId]);
-
-  const handlePrint = () => {
-    window.print();
-  };
 
   const saveSettings = (newSettings: IDSettings) => {
     setSettings(newSettings);
@@ -154,17 +160,9 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user }) => {
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-indigo-50 space-y-8 animate-slide-up">
               <div>
                 <h3 className="text-xs font-black text-amber-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
-                  <i className="fa-solid fa-palette"></i> Card Branding
+                  <i className="fa-solid fa-palette"></i> Card Theme
                 </h3>
                 <div className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Academy Name</label>
-                    <input 
-                      className="w-full px-5 py-3 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none"
-                      value={settings.schoolName}
-                      onChange={e => saveSettings({...settings, schoolName: e.target.value})}
-                    />
-                  </div>
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Theme HEX Color</label>
                     <div className="flex gap-2">
@@ -181,21 +179,13 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user }) => {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button 
-                      onClick={() => document.getElementById('logo-upload')?.click()}
-                      className="py-3 bg-indigo-50 text-indigo-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all"
-                    >
-                      Change Logo
-                    </button>
+                  <div className="grid grid-cols-1 gap-3">
                     <button 
                       onClick={() => document.getElementById('sign-upload')?.click()}
                       className="py-3 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all"
                     >
-                      Seal Image
+                      Upload Card Seal
                     </button>
-                    <input id="logo-upload" type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload('logo', e)} />
-                    {/* FIX: Use 'signature' literal instead of 'sign' */}
                     <input id="sign-upload" type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload('signature', e)} />
                   </div>
                 </div>
@@ -270,7 +260,7 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user }) => {
                         {settings.customLogo ? (
                           <img src={settings.customLogo} className="w-full h-full object-contain" alt="Custom Logo" />
                         ) : (
-                          <Logo size="sm" />
+                          <i className="fa-solid fa-graduation-cap text-indigo-900 text-2xl"></i>
                         )}
                     </div>
                     <div className="text-center relative z-10">
@@ -369,7 +359,9 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user }) => {
                   </div>
 
                   <div className="mt-12 pt-8 border-t border-white/10 flex items-center justify-between relative z-10 opacity-30">
-                      <Logo size="sm" className="brightness-200 grayscale" />
+                      <div className="w-8 h-8 rounded-lg bg-white p-1">
+                        {settings.customLogo && <img src={settings.customLogo} className="w-full h-full object-contain grayscale" />}
+                      </div>
                       <p className="text-[7px] font-black uppercase tracking-[0.5em]">System ID: {student.id.slice(0,8)}</p>
                   </div>
 

@@ -1,16 +1,17 @@
 
 import React, { useState, useMemo } from 'react';
-import { Student, AttendanceRecord } from '../types';
+import { Student, AttendanceRecord, SchoolBranding } from '../types';
 import Logo from './Logo';
 
 interface StudentReportsProps {
   students: Student[];
   attendance: AttendanceRecord[];
+  branding: SchoolBranding;
 }
 
 declare var html2pdf: any;
 
-const StudentReports: React.FC<StudentReportsProps> = ({ students, attendance }) => {
+const StudentReports: React.FC<StudentReportsProps> = ({ students, attendance, branding }) => {
   const [selectedGrade, setSelectedGrade] = useState('1');
   const [reportType, setReportType] = useState<'ROSTER' | 'ATTENDANCE' | 'MONTHLY_PERCENTAGE' | 'MONTHLY_REGISTER'>('ROSTER');
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
@@ -70,7 +71,7 @@ const StudentReports: React.FC<StudentReportsProps> = ({ students, attendance })
     setIsDownloadingPDF(true);
     const opt = {
       margin: [5, 5, 5, 5],
-      filename: `Academy_Report_${reportType}_Class${selectedGrade}_${selectedMonth}_${selectedYear}.pdf`,
+      filename: `${branding.name || 'Academy'}_Report_${reportType}_Class${selectedGrade}_${selectedMonth}_${selectedYear}.pdf`,
       image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { 
         scale: 2.5, 
@@ -175,8 +176,8 @@ const StudentReports: React.FC<StudentReportsProps> = ({ students, attendance })
       >
         <div className="p-10 border-b-2 border-black flex flex-col md:flex-row md:items-center justify-between gap-8">
            <div className="flex items-center gap-8">
-              <div className="w-16 h-16 bg-white border-4 border-black flex items-center justify-center p-2 grayscale">
-                 <Logo size="md" />
+              <div className="w-16 h-16 bg-white border-4 border-black flex items-center justify-center p-1 grayscale">
+                 {branding.logo ? <img src={branding.logo} className="w-full h-full object-contain" /> : <i className="fa-solid fa-graduation-cap"></i>}
               </div>
               <div>
                  <h3 className="text-3xl font-bold text-black uppercase tracking-tight leading-none">
@@ -185,7 +186,7 @@ const StudentReports: React.FC<StudentReportsProps> = ({ students, attendance })
                     reportType === 'MONTHLY_PERCENTAGE' ? 'MONTHLY ANALYTICS SUMMARY' : 'MONTHLY ATTENDANCE REGISTER'}
                  </h3>
                  <p className="text-[10px] font-bold text-black uppercase tracking-widest mt-2">
-                   DIGITAL EDUCATION OFFICIAL • CLASS: {selectedGrade} • {monthNames[selectedMonth-1].toUpperCase()} {selectedYear}
+                   {(branding.name || 'ACADEMY').toUpperCase()} OFFICIAL • CLASS: {selectedGrade} • {monthNames[selectedMonth-1].toUpperCase()} {selectedYear}
                  </p>
               </div>
            </div>
@@ -278,7 +279,7 @@ const StudentReports: React.FC<StudentReportsProps> = ({ students, attendance })
            <div className="text-[10px] uppercase leading-relaxed font-bold">
               LEGEND: (P) PRESENT | (A) ABSENT | (L) LATE<br/>
               * COMPUTER GENERATED ARCHIVE<br/>
-              * DIGITAL EDUCATION SECRETARIAT
+              * {branding.name?.toUpperCase() || 'ACADEMY SECRETARIAT'}
            </div>
            <div className="text-right">
               <div className="w-40 h-0.5 bg-black mb-1"></div>
@@ -287,7 +288,7 @@ const StudentReports: React.FC<StudentReportsProps> = ({ students, attendance })
         </div>
 
         <div className="absolute bottom-2 left-0 w-full text-center text-[7px] uppercase tracking-[1em] opacity-30">
-           CONFIDENTIAL OFFICIAL RECORD • EST 1994
+           CONFIDENTIAL OFFICIAL RECORD • {branding.phone || 'VERIFIED'}
         </div>
       </div>
 

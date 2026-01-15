@@ -45,6 +45,11 @@ export const dbService = {
         const settings = data?.find(item => item.id === 'current_subjects');
         return settings ? settings.list : [];
       }
+
+      if (table === 'school_branding') {
+        const branding = data?.find(item => item.id === 'active_brand');
+        return branding ? toCamelCase(branding) : null;
+      }
       
       return (data || []).map(item => toCamelCase(item));
     } catch (err) {
@@ -59,6 +64,8 @@ export const dbService = {
 
       if (table === 'subject_list') {
         dataToPush = { id: 'current_subjects', list: payload };
+      } else if (table === 'school_branding') {
+        dataToPush = { ...toSnakeCase(payload), id: 'active_brand' };
       } else if (Array.isArray(payload)) {
         dataToPush = payload.map(item => toSnakeCase(item));
       } else {

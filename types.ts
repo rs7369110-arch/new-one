@@ -1,4 +1,5 @@
 
+
 export enum UserRole {
   ADMIN = 'ADMIN',
   STUDENT = 'STUDENT',
@@ -15,6 +16,32 @@ export enum PaymentMode {
   ONLINE = 'ONLINE',
   OFFLINE = 'OFFLINE'
 }
+
+export interface SchoolBranding {
+  id: string;
+  name: string;
+  tagline: string;
+  address: string;
+  phone: string;
+  email: string;
+  logo: string | null;
+  themeColor: string;
+}
+
+/**
+ * Global default branding configuration.
+ * Moved to types.ts to be shared across App.tsx and Sidebar.tsx.
+ */
+export const DEFAULT_BRANDING: SchoolBranding = {
+  id: 'active_brand',
+  name: 'Digital Education',
+  tagline: 'Academy of Excellence',
+  address: 'System Default Address, Digital Node',
+  phone: '0000000000',
+  email: 'admin@digitaledu.com',
+  logo: null,
+  themeColor: '#4f46e5'
+};
 
 export interface FeeTransaction {
   id: string;

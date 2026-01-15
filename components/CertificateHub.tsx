@@ -1,11 +1,12 @@
 
 import React, { useState, useRef } from 'react';
-import { Student } from '../types';
+import { Student, SchoolBranding } from '../types';
 import Logo from './Logo';
 import { storage } from '../db';
 
 interface CertificateHubProps {
   students: Student[];
+  branding: SchoolBranding;
 }
 
 type CertType = 'BONAFIDE' | 'CHARACTER' | 'ATTEMPT' | null;
@@ -18,7 +19,7 @@ const SIGN_KEYS = {
   TEACHER: 'digital_sign_teacher'
 };
 
-const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
+const CertificateHub: React.FC<CertificateHubProps> = ({ students, branding }) => {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [activeCert, setActiveCert] = useState<CertType>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -81,7 +82,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
             Son/Daughter of <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.parentName}</strong>, 
             bearing Admission No. <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.admissionNo}</strong> 
             and GR Number <strong className="text-amber-600 border-b-2 border-amber-200 pb-1 px-2">{student.grNo || '---'}</strong>, 
-            is a bonafide student of <strong className="text-indigo-900 uppercase">Digital Education</strong>. 
+            is a bonafide student of <strong className="text-indigo-900 uppercase">{branding.name || 'Digital Education'}</strong>. 
             He/She is currently studying in Grade <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.grade}th</strong> 
             during the Academic Session <strong className="text-indigo-900">{sessionRange}</strong>.
             <br /><br />
@@ -96,7 +97,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
             Certified that Master/Miss <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.name}</strong>, 
             GR No. <strong className="text-amber-600 border-b-2 border-amber-200 pb-1 px-2">{student.grNo || '---'}</strong>, 
             has been a regular student of this Academy from Grade 1 to <strong className="text-indigo-900 border-b-2 border-indigo-200 pb-1 px-2">{student.grade}th</strong>. 
-            During his/her tenure at <strong className="text-indigo-900">Digital Education</strong>, 
+            During his/her tenure at <strong className="text-indigo-900 uppercase">{branding.name || 'Digital Education'}</strong>, 
             his/her conduct and character have been found to be <strong className="text-emerald-600 border-b-2 border-emerald-200 pb-1 px-2">EXCELLENT</strong>.
             <br /><br />
             He/She bears a good moral character and possesses a disciplined academic attitude. We wish him/her a very bright and prosperous future in all upcoming endeavors.
@@ -127,7 +128,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
       >
         {/* Certificate Watermark */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none w-[500px]">
-           <Logo size="lg" className="w-full" />
+           {branding.logo && <img src={branding.logo} className="w-full grayscale opacity-10" />}
         </div>
 
         {/* Ornate Corner Decorations */}
@@ -137,9 +138,11 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
         <div className="absolute bottom-5 right-5 w-24 h-24 border-b-4 border-r-4 border-amber-400 opacity-20"></div>
 
         <div className="relative z-10 flex flex-col items-center">
-           <Logo size="lg" className="mb-6 drop-shadow-xl" />
-           <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2">Digital Education</h1>
-           <p className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] bg-indigo-50 px-8 py-2 rounded-full mb-10">Official Academic Secretariat</p>
+           <div className="w-24 h-24 bg-white p-2 rounded-2xl shadow-xl flex items-center justify-center overflow-hidden mb-6 border-2 border-indigo-50">
+             {branding.logo ? <img src={branding.logo} className="w-full h-full object-contain" /> : <i className="fa-solid fa-graduation-cap text-indigo-900 text-4xl"></i>}
+           </div>
+           <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2 text-center">{branding.name || 'ACADEMY'}</h1>
+           <p className="text-xs font-black text-indigo-400 uppercase tracking-[0.4em] bg-indigo-50 px-8 py-2 rounded-full mb-10">{branding.tagline || 'Official Academic Secretariat'}</p>
            
            <div className="w-full h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent mb-16"></div>
 
@@ -153,7 +156,7 @@ const CertificateHub: React.FC<CertificateHubProps> = ({ students }) => {
                  <p className="font-bold text-gray-800 text-lg border-b border-gray-100 pb-2 w-fit pr-10">{today}</p>
                  <div className="mt-8 flex items-center gap-3">
                     <div className="w-16 h-16 rounded-full border-4 border-indigo-100/30 flex items-center justify-center p-3 grayscale opacity-30">
-                       <Logo size="sm" />
+                       {branding.logo ? <img src={branding.logo} className="w-full h-full object-contain" /> : <i className="fa-solid fa-graduation-cap text-indigo-900"></i>}
                     </div>
                     <p className="text-[10px] font-black uppercase text-gray-300 tracking-[0.3em]">Office of<br/>Secretariat</p>
                  </div>

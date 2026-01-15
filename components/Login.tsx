@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, User, Student } from '../types';
 import Logo from './Logo';
 import { storage, DB_KEYS } from '../db';
@@ -13,16 +13,101 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
-  const [otp, setOtp] = useState('');
-  const [sentOtp, setSentOtp] = useState<string | null>(null);
-  const [isOtpStage, setIsOtpStage] = useState(false);
   const [role, setRole] = useState<UserRole>(UserRole.ADMIN);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mouseRef = useRef({ x: 0, y: 0 });
 
   const students: Student[] = storage.get(DB_KEYS.STUDENTS, []);
+
+  // Neural Mesh Animation Logic
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let particles: Particle[] = [];
+    const particleCount = 60;
+
+    class Particle {
+      x: number; y: number; vx: number; vy: number; size: number;
+      constructor() {
+        this.x = Math.random() * canvas!.width;
+        this.y = Math.random() * canvas!.height;
+        this.vx = (Math.random() - 0.5) * 0.5;
+        this.vy = (Math.random() - 0.5) * 0.5;
+        this.size = Math.random() * 2 + 1;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0 || this.x > canvas!.width) this.vx *= -1;
+        if (this.y < 0 || this.y > canvas!.height) this.vy *= -1;
+
+        // Mouse interaction
+        const dx = mouseRef.current.x - this.x;
+        const dy = mouseRef.current.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 150) {
+          this.x -= dx * 0.01;
+          this.y -= dy * 0.01;
+        }
+      }
+      draw() {
+        ctx!.beginPath();
+        ctx!.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx!.fillStyle = 'rgba(99, 102, 241, 0.5)';
+        ctx!.fill();
+      }
+    }
+
+    const init = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      particles = [];
+      for (let i = 0; i < particleCount; i++) particles.push(new Particle());
+    };
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach((p, i) => {
+        p.update();
+        p.draw();
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = p.x - particles[j].x;
+          const dy = p.y - particles[j].y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < 120) {
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(99, 102, 241, ${0.2 - distance / 600})`;
+            ctx.lineWidth = 1;
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      });
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    window.addEventListener('resize', init);
+    window.addEventListener('mousemove', (e) => {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+    });
+
+    init();
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', init);
+    };
+  }, []);
 
   const handleStaffSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,69 +130,80 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         setIsSuccess(true);
         setTimeout(() => onLogin(matchedUser!), 1500);
       } else {
-        setError('Access Denied: Invalid System Credentials');
+        setError('SEC_ERROR: Identification strings failed decryption');
         setIsLoading(false);
       }
-    }, 2000);
+    }, 2800);
   };
 
   const handleParentOtpRequest = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     const matchedStudent = students.find(s => s.phone === mobileNumber);
-    
     if (matchedStudent) {
-      const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
-      setSentOtp(generatedOtp);
-      setIsOtpStage(true);
+      alert(`System Notice: OTP Protocol triggered for ${mobileNumber}`);
     } else {
-      setError('Identity Mismatch: Mobile not found in registry.');
+      setError('ID_ERROR: Mobile string not found in master registry');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#030305] p-6 relative overflow-hidden font-sans">
-      {/* QUANTUM BACKGROUND ELEMENTS */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] animate-pulse delay-700"></div>
-        <div className="grid-bg opacity-20 absolute inset-0"></div>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-[#020205] p-6 relative overflow-hidden font-sans">
+      {/* CANVAS BACKGROUND */}
+      <canvas ref={canvasRef} className="absolute inset-0 z-0 pointer-events-none" />
+      
+      {/* SCANLINE OVERLAY */}
+      <div className="absolute inset-0 pointer-events-none z-10 opacity-[0.05]" style={{ background: 'linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06))', backgroundSize: '100% 3px, 3px 100%' }}></div>
 
-      {/* LOGIN CONTAINER */}
-      <div className={`w-full max-w-lg relative transition-all duration-1000 transform ${isSuccess ? 'scale-110 opacity-0 blur-2xl' : 'scale-100 opacity-100'}`}>
+      <div className={`w-full max-w-lg relative z-20 transition-all duration-1000 ${isSuccess ? 'scale-[2.5] opacity-0 blur-3xl' : 'scale-100 opacity-100'}`}>
         
-        {/* EXTERNAL GLOW RING */}
-        <div className={`absolute -inset-4 rounded-[4rem] blur-3xl opacity-20 transition-colors duration-1000 ${role === UserRole.ADMIN ? 'bg-indigo-500' : 'bg-purple-500'}`}></div>
+        {/* HOLOGRAPHIC GLOW */}
+        <div className={`absolute -inset-2 rounded-[3.5rem] blur-3xl transition-all duration-1000 ${focusedField ? 'opacity-40' : 'opacity-10'} ${role === UserRole.ADMIN ? 'bg-indigo-500' : 'bg-purple-500'}`}></div>
 
-        <div className="relative bg-[#0d0d12]/90 backdrop-blur-2xl rounded-[3.5rem] border border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.8)] p-10 md:p-14 overflow-hidden group">
+        <div className={`relative bg-[#0a0a0f]/80 backdrop-blur-3xl rounded-[3rem] border border-white/5 shadow-[0_0_100px_rgba(0,0,0,1)] p-10 md:p-14 overflow-hidden group ${isLoading ? 'pointer-events-none' : ''}`}>
           
-          {/* TOP DECORATIVE BAR */}
-          <div className="absolute top-0 left-0 w-full h-1.5 overflow-hidden">
-             <div className="h-full w-full bg-gradient-to-r from-transparent via-indigo-500 to-transparent animate-scan-fast"></div>
-          </div>
+          {/* DECRYPTION LOADER OVERLAY */}
+          {isLoading && (
+            <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0a0f]/95 animate-fade-in backdrop-blur-lg">
+               <div className="relative w-40 h-40">
+                  <div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full"></div>
+                  <div className="absolute inset-0 border-t-4 border-indigo-500 rounded-full animate-spin"></div>
+                  <div className="absolute inset-4 border-4 border-cyan-500/20 rounded-full"></div>
+                  <div className="absolute inset-4 border-b-4 border-cyan-500 rounded-full animate-spin-reverse"></div>
+                  <div className="absolute inset-8 flex flex-col items-center justify-center text-center">
+                     <span className="text-[10px] font-black text-indigo-400 animate-pulse">DECRYPTING</span>
+                     <span className="text-[8px] font-mono text-cyan-500/60 font-bold mt-1">0x{Math.floor(Math.random()*9999).toString(16)}</span>
+                  </div>
+               </div>
+               <div className="mt-8 text-center space-y-2">
+                  <p className="text-[10px] font-black text-white uppercase tracking-[0.5em] animate-pulse">Verifying Neural Signature</p>
+                  <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden mx-auto">
+                     <div className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 animate-loading-bar"></div>
+                  </div>
+               </div>
+            </div>
+          )}
 
           <div className="text-center mb-10">
-            <div className="relative inline-block mb-6">
-               <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full animate-ping-slow"></div>
-               <Logo size="lg" className="relative drop-shadow-[0_0_15px_rgba(79,70,229,0.5)]" />
+            <div className="relative inline-block mb-6 group-hover:scale-110 transition-transform duration-700">
+               <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full animate-pulse"></div>
+               <Logo size="lg" className="relative drop-shadow-[0_0_20px_rgba(99,102,241,0.6)]" />
             </div>
-            <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none">
-              Digital <span className="text-indigo-400">Node</span>
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase leading-none font-orbitron">
+              Digital <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Core</span>
             </h1>
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.6em] mt-3 opacity-60">Authentication Protocol</p>
+            <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.6em] mt-4">Academy Security Node</p>
           </div>
 
-          {/* MODE SELECTOR */}
-          <div className="flex bg-black/40 p-1.5 rounded-[2rem] mb-10 border border-white/5 relative">
-            <div className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-indigo-600 rounded-[1.5rem] shadow-lg transition-all duration-500 ease-out ${loginMode === 'PARENT' ? 'translate-x-full' : 'translate-x-0'}`}></div>
-            <button className={`flex-1 py-4 relative z-10 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${loginMode === 'STAFF' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => setLoginMode('STAFF')}>Registry Staff</button>
-            <button className={`flex-1 py-4 relative z-10 text-[10px] font-black uppercase tracking-[0.2em] transition-all ${loginMode === 'PARENT' ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`} onClick={() => setLoginMode('PARENT')}>Parent Access</button>
+          <div className="flex bg-black/50 p-1 rounded-[1.8rem] mb-10 border border-white/5 relative">
+            <div className={`absolute top-1 bottom-1 w-[calc(50%-4px)] bg-indigo-600 rounded-[1.4rem] shadow-[0_0_20px_rgba(79,70,229,0.4)] transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) ${loginMode === 'PARENT' ? 'translate-x-full' : 'translate-x-0'}`}></div>
+            <button className={`flex-1 py-3.5 relative z-10 text-[10px] font-black uppercase tracking-widest transition-all ${loginMode === 'STAFF' ? 'text-white' : 'text-slate-500'}`} onClick={() => setLoginMode('STAFF')}>Academy Staff</button>
+            <button className={`flex-1 py-3.5 relative z-10 text-[10px] font-black uppercase tracking-widest transition-all ${loginMode === 'PARENT' ? 'text-white' : 'text-slate-500'}`} onClick={() => setLoginMode('PARENT')}>Parent Link</button>
           </div>
 
           {error && (
-            <div className="mb-8 p-5 bg-rose-500/10 text-rose-400 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-4 border border-rose-500/20 animate-shake">
-              <i className="fa-solid fa-shield-virus text-sm"></i>
+            <div className="mb-8 p-5 bg-rose-500/10 text-rose-400 text-[9px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-4 border border-rose-500/20 animate-shake">
+              <i className="fa-solid fa-triangle-exclamation text-base"></i>
               {error}
             </div>
           )}
@@ -119,7 +215,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   {[UserRole.ADMIN, UserRole.TEACHER].map((r) => (
                     <button 
                       key={r} type="button"
-                      className={`py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all border ${role === r ? 'bg-indigo-600/10 border-indigo-500/50 text-indigo-400 shadow-xl' : 'bg-transparent border-white/5 text-slate-600'}`}
+                      className={`py-3.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border-2 ${role === r ? 'bg-indigo-600/10 border-indigo-500/50 text-indigo-400' : 'bg-transparent border-white/5 text-slate-700'}`}
                       onClick={() => setRole(r)}
                     >
                       {r === UserRole.ADMIN ? 'Administrator' : 'Master Educator'}
@@ -128,32 +224,29 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
 
                 <div className="space-y-4">
-                  {/* ID INPUT */}
-                  <div className="relative group/input">
-                    <div className={`absolute -inset-[2px] rounded-[1.8rem] transition-all duration-500 opacity-0 group-focus-within/input:opacity-100 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-border-flow`}></div>
-                    <div className="relative bg-[#0a0a0c] rounded-[1.8rem] overflow-hidden">
-                       <i className={`fa-solid fa-hashtag absolute left-6 top-1/2 -translate-y-1/2 transition-colors ${focusedField === 'id' ? 'text-indigo-400' : 'text-slate-700'}`}></i>
+                  <div className={`relative transition-all duration-500 ${focusedField === 'id' ? 'scale-[1.02] -translate-y-1' : ''}`}>
+                    <div className="relative bg-black/40 rounded-[1.5rem] overflow-hidden border border-white/5 group-focus-within:border-indigo-500/30">
+                       <i className={`fa-solid fa-at absolute left-6 top-1/2 -translate-y-1/2 text-sm transition-colors ${focusedField === 'id' ? 'text-indigo-400' : 'text-slate-700'}`}></i>
                        <input 
                          type="text" required
-                         className="w-full pl-14 pr-6 py-5 bg-transparent border border-white/5 outline-none font-bold text-white text-sm placeholder:text-slate-800 placeholder:uppercase"
-                         placeholder="System Identity"
+                         className="w-full pl-14 pr-6 py-5 bg-transparent outline-none font-bold text-white text-sm placeholder:text-slate-800 placeholder:uppercase"
+                         placeholder="Master ID"
                          value={email}
                          onFocus={() => setFocusedField('id')}
                          onBlur={() => setFocusedField(null)}
                          onChange={(e) => setEmail(e.target.value)}
                        />
+                       {focusedField === 'id' && <div className="absolute right-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping"></div>}
                     </div>
                   </div>
 
-                  {/* PASSWORD INPUT */}
-                  <div className="relative group/input">
-                    <div className={`absolute -inset-[2px] rounded-[1.8rem] transition-all duration-500 opacity-0 group-focus-within/input:opacity-100 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 animate-border-flow`}></div>
-                    <div className="relative bg-[#0a0a0c] rounded-[1.8rem] overflow-hidden">
-                       <i className={`fa-solid fa-lock absolute left-6 top-1/2 -translate-y-1/2 transition-colors ${focusedField === 'pass' ? 'text-indigo-400' : 'text-slate-700'}`}></i>
+                  <div className={`relative transition-all duration-500 ${focusedField === 'pass' ? 'scale-[1.02] -translate-y-1' : ''}`}>
+                    <div className="relative bg-black/40 rounded-[1.5rem] overflow-hidden border border-white/5 group-focus-within:border-indigo-500/30">
+                       <i className={`fa-solid fa-shield-halved absolute left-6 top-1/2 -translate-y-1/2 text-sm transition-colors ${focusedField === 'pass' ? 'text-indigo-400' : 'text-slate-700'}`}></i>
                        <input 
                          type="password" required
-                         className="w-full pl-14 pr-6 py-5 bg-transparent border border-white/5 outline-none font-bold text-white text-sm placeholder:text-slate-800 placeholder:uppercase"
-                         placeholder="Master Cipher"
+                         className="w-full pl-14 pr-6 py-5 bg-transparent outline-none font-bold text-white text-sm placeholder:text-slate-800 placeholder:uppercase"
+                         placeholder="Security Cipher"
                          value={password}
                          onFocus={() => setFocusedField('pass')}
                          onBlur={() => setFocusedField(null)}
@@ -165,118 +258,73 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 
                 <button 
                   type="submit"
-                  disabled={isLoading}
-                  className={`w-full py-6 relative rounded-[2rem] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl transition-all transform active:scale-95 flex items-center justify-center gap-3 mt-10 overflow-hidden ${isLoading ? 'bg-slate-800 text-slate-500 cursor-wait' : 'bg-indigo-600 hover:bg-white hover:text-indigo-950 text-white'}`}
+                  className="w-full py-6 relative rounded-[2rem] bg-indigo-600 hover:bg-white hover:text-indigo-950 text-white font-black text-[11px] uppercase tracking-[0.5em] shadow-2xl transition-all transform active:scale-95 flex items-center justify-center gap-4 mt-12 overflow-hidden group/btn"
                 >
-                  {isLoading ? (
-                    <div className="flex items-center gap-3">
-                       <svg className="animate-spin h-5 w-5 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                       </svg>
-                       <span>Decrypting...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <i className="fa-solid fa-bolt-lightning text-amber-400 animate-pulse"></i>
-                      <span>Uplink Access</span>
-                    </>
-                  )}
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 group-hover/btn:opacity-10 transition-opacity"></div>
+                  <i className="fa-solid fa-bolt text-amber-400"></i>
+                  <span>Initiate Uplink</span>
                 </button>
               </form>
             ) : (
-              /* PARENT FORM */
-              <form onSubmit={isOtpStage ? (e) => e.preventDefault() : handleParentOtpRequest} className="space-y-8 animate-fade-in">
-                 <div className="relative group/input">
-                    <div className={`absolute -inset-[2px] rounded-[1.8rem] transition-all duration-500 opacity-0 group-focus-within/input:opacity-100 bg-gradient-to-r from-amber-500 to-orange-500 animate-border-flow`}></div>
-                    <div className="relative bg-[#0a0a0c] rounded-[2rem] overflow-hidden p-6 flex items-center gap-6">
-                       <div className="flex items-center gap-2 border-r border-white/10 pr-4">
-                          <img src="https://flagcdn.com/w20/in.png" className="w-5 rounded shadow-sm opacity-60" alt="IN" />
-                          <span className="text-slate-500 font-black text-sm">+91</span>
-                       </div>
-                       <input 
-                         type="tel" required maxLength={10}
-                         className="flex-1 bg-transparent border-none outline-none font-black text-white tracking-[0.2em] text-2xl placeholder:text-slate-800"
-                         placeholder="0000000000"
-                         value={mobileNumber}
-                         onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
-                       />
+              <form onSubmit={handleParentOtpRequest} className="space-y-8 animate-fade-in">
+                 <div className="relative bg-black/40 rounded-[2rem] overflow-hidden p-8 border border-white/5 flex items-center gap-8 shadow-inner">
+                    <div className="flex items-center gap-3 border-r border-white/10 pr-6 shrink-0">
+                       <img src="https://flagcdn.com/w20/in.png" className="w-6 rounded-sm opacity-60" alt="IN" />
+                       <span className="text-slate-400 font-black text-lg">+91</span>
                     </div>
+                    <input 
+                      type="tel" required maxLength={10}
+                      className="flex-1 bg-transparent border-none outline-none font-black text-white tracking-[0.3em] text-3xl placeholder:text-slate-900"
+                      placeholder="0000000000"
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
+                    />
                  </div>
-                 
-                 <button type="submit" className="w-full py-6 bg-amber-500 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl transition-all transform active:scale-95 flex items-center justify-center gap-3">
-                   <i className="fa-solid fa-fingerprint"></i> Verify Link
+                 <button type="submit" className="w-full py-7 bg-amber-500 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.4em] shadow-2xl transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4">
+                   <i className="fa-solid fa-fingerprint text-xl"></i> Secure Access
                  </button>
               </form>
             )}
           </div>
 
-          <div className="mt-14 pt-10 border-t border-white/5 flex items-center justify-between opacity-30">
-             <div className="flex gap-5 text-sm">
+          <div className="mt-16 pt-10 border-t border-white/5 flex items-center justify-between opacity-30">
+             <div className="flex gap-6 text-sm">
                 <i className="fa-brands fa-android hover:text-indigo-400 transition-colors"></i>
                 <i className="fa-brands fa-apple hover:text-indigo-400 transition-colors"></i>
                 <i className="fa-solid fa-wifi hover:text-emerald-400 transition-colors"></i>
              </div>
-             <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.4em]">Core v4.5.1</p>
+             <p className="text-[9px] font-black text-slate-600 uppercase tracking-[0.5em] font-orbitron">Engine v6.1.0</p>
           </div>
         </div>
       </div>
 
-      {/* SUCCESS OVERLAY */}
-      {isSuccess && (
-        <div className="fixed inset-0 z-[5000] flex items-center justify-center pointer-events-none">
-           <div className="text-center animate-success-sequence">
-              <div className="w-24 h-24 bg-emerald-500 rounded-full flex items-center justify-center text-white text-5xl mb-6 shadow-[0_0_50px_rgba(16,185,129,0.5)] mx-auto">
-                 <i className="fa-solid fa-check"></i>
-              </div>
-              <h2 className="text-2xl font-black text-white uppercase tracking-[0.5em]">Identity Cleared</h2>
-           </div>
-        </div>
-      )}
-
       <style>{`
-        .grid-bg {
-          background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
-          background-size: 32px 32px;
-        }
-        
-        @keyframes scan-fast {
+        @keyframes loading-bar {
           0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
           100% { transform: translateX(100%); }
         }
-        .animate-scan-fast { animation: scan-fast 1.5s infinite linear; }
-
-        @keyframes border-flow {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+        .animate-loading-bar {
+          width: 100%;
+          animation: loading-bar 2s infinite ease-in-out;
         }
-        .animate-border-flow {
-          background-size: 200% 200%;
-          animation: border-flow 3s infinite linear;
+        @keyframes spin-reverse {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(-360deg); }
         }
-
-        @keyframes ping-slow {
-          0% { transform: scale(1); opacity: 0.5; }
-          100% { transform: scale(1.5); opacity: 0; }
+        .animate-spin-reverse {
+          animation: spin-reverse 1.5s linear infinite;
         }
-        .animate-ping-slow { animation: ping-slow 3s infinite ease-out; }
-
-        @keyframes success-sequence {
-          0% { transform: scale(0.5); opacity: 0; filter: blur(20px); }
-          50% { transform: scale(1.1); opacity: 1; filter: blur(0px); }
-          100% { transform: scale(1.5); opacity: 0; filter: blur(10px); }
-        }
-        .animate-success-sequence { animation: success-sequence 1.5s forwards cubic-bezier(0.4, 0, 0.2, 1); }
-
         @keyframes shake { 
           0%, 100% { transform: translateX(0); } 
-          20% { transform: translateX(-10px); } 
-          40% { transform: translateX(10px); } 
-          60% { transform: translateX(-10px); } 
-          80% { transform: translateX(10px); } 
+          20% { transform: translateX(-8px); } 
+          40% { transform: translateX(8px); } 
+          60% { transform: translateX(-8px); } 
+          80% { transform: translateX(8px); } 
         }
         .animate-shake { animation: shake 0.4s ease-in-out; }
+        
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
       `}</style>
     </div>
   );

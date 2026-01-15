@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { User, UserRole, Student, MarksRecord } from '../types';
+import { User, UserRole, Student, MarksRecord, SchoolBranding } from '../types';
 import Logo from './Logo';
 import { storage } from '../db';
 
@@ -11,6 +11,7 @@ interface MarksheetManagerProps {
   onUpdateMarks: (marks: MarksRecord[]) => void;
   availableSubjects: string[];
   onUpdateSubjects: (subjects: string[]) => void;
+  branding: SchoolBranding;
 }
 
 declare var html2pdf: any;
@@ -21,7 +22,7 @@ const SIGN_KEYS = {
 };
 
 const MarksheetManager: React.FC<MarksheetManagerProps> = ({ 
-  user, students, marks, onUpdateMarks, availableSubjects, onUpdateSubjects
+  user, students, marks, onUpdateMarks, availableSubjects, onUpdateSubjects, branding
 }) => {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [term, setTerm] = useState('Quarterly Exam');
@@ -151,13 +152,17 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
 
     return (
       <div ref={printableRef} className="bg-white p-12 w-[210mm] min-h-[297mm] mx-auto border-[16px] border-double border-indigo-100 relative shadow-inner overflow-hidden flex flex-col">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none w-[500px]"><Logo size="lg" className="w-full" /></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none w-[500px]">
+           {branding.logo && <img src={branding.logo} className="w-full grayscale opacity-20" />}
+        </div>
         <div className="flex items-start justify-between border-b-8 border-indigo-600 pb-10 mb-10 relative z-10">
           <div className="flex gap-8 items-center">
-             <Logo size="lg" className="drop-shadow-2xl scale-110" />
+             <div className="w-24 h-24 bg-white p-2 rounded-2xl shadow-xl flex items-center justify-center overflow-hidden border-2 border-indigo-50">
+                {branding.logo ? <img src={branding.logo} className="w-full h-full object-contain" /> : <i className="fa-solid fa-graduation-cap text-4xl text-indigo-200"></i>}
+             </div>
              <div>
-               <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2">Digital Education</h1>
-               <p className="text-[12px] font-black text-indigo-400 uppercase tracking-[0.4em] bg-indigo-50 px-6 py-2 rounded-full inline-block">Official Transcript</p>
+               <h1 className="text-5xl font-black text-indigo-900 tracking-tighter uppercase mb-2">{branding.name || 'ACADEMY'}</h1>
+               <p className="text-[12px] font-black text-indigo-400 uppercase tracking-[0.4em] bg-indigo-50 px-6 py-2 rounded-full inline-block">{branding.tagline || 'OFFICIAL TRANSCRIPT'}</p>
              </div>
           </div>
           <div className="w-44 h-44 border-[8px] border-indigo-50 rounded-[2.5rem] overflow-hidden bg-gray-50 shadow-2xl relative ring-8 ring-white">
@@ -316,8 +321,10 @@ const MarksheetManager: React.FC<MarksheetManagerProps> = ({
         <div className="fixed inset-0 z-[1000] bg-slate-900/98 backdrop-blur-3xl flex flex-col items-center p-6 overflow-y-auto">
            <div className="w-full max-w-[210mm] flex items-center justify-between mb-10 shrink-0 mt-4">
               <div className="flex items-center gap-4 text-white">
-                 <Logo size="sm" />
-                 <div><h4 className="font-black uppercase tracking-tight">Official Record</h4><p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Digital Seal Applied</p></div>
+                 <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden">
+                    {branding.logo ? <img src={branding.logo} className="w-full h-full object-contain" /> : <i className="fa-solid fa-graduation-cap text-indigo-900"></i>}
+                 </div>
+                 <div><h4 className="font-black uppercase tracking-tight">{branding.name || 'OFFICIAL RECORD'}</h4><p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Digital Seal Applied</p></div>
               </div>
               <div className="flex gap-4">
                  <button onClick={handleDownloadPDF} disabled={isDownloading} className="px-10 py-4 bg-emerald-500 text-white rounded-2xl font-black flex items-center gap-3 shadow-2xl transition-all hover:scale-105 active:scale-95 disabled:opacity-50 uppercase text-xs tracking-widest"><i className={`fa-solid ${isDownloading ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`}></i> {isDownloading ? 'Sealing...' : 'Download PDF'}</button>

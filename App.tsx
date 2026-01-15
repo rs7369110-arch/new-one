@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language, FeeTransaction } from './types';
+import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language, FeeTransaction, SchoolBranding, DEFAULT_BRANDING } from './types';
 import { storage, DB_KEYS } from './db';
 import { dbService } from './services/supabase';
 import Login from './components/Login';
@@ -25,7 +25,6 @@ import StudentReports from './components/StudentReports';
 import ExamEntry from './components/ExamEntry';
 import FeeReports from './components/FeeReports';
 import CustomProfileBuilder from './components/CustomProfileBuilder';
-import Logo from './components/Logo';
 
 const DEFAULT_FOOD_CHART: FoodItem[] = [
   { day: 'Monday', breakfast: 'Milk & Poha', breakfastPrice: 20, lunch: 'Dal Fry & Rice', lunchPrice: 40 },
@@ -53,6 +52,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   
+  const [schoolBranding, setSchoolBranding] = useState<SchoolBranding>(storage.get(DB_KEYS.SCHOOL_BRANDING, DEFAULT_BRANDING));
   const [students, setStudents] = useState<Student[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
@@ -103,12 +103,13 @@ const App: React.FC = () => {
     setFeeStructures(storage.get(DB_KEYS.FEE_STRUCTURES, []));
     setCustomTemplates(storage.get(DB_KEYS.CUSTOM_TEMPLATES, []));
     setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
+    setSchoolBranding(storage.get(DB_KEYS.SCHOOL_BRANDING, DEFAULT_BRANDING));
 
     const syncAll = async () => {
       try {
         setIsSyncing(true);
         const [
-          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, actData
+          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, actData, brandData
         ] = await Promise.all([
           dbService.fetchAll('students'),
           dbService.fetchAll('notices'),
@@ -125,7 +126,8 @@ const App: React.FC = () => {
           dbService.fetchAll('fee_transactions'),
           dbService.fetchAll('custom_templates'),
           dbService.fetchAll('subject_list'),
-          dbService.fetchAll('activities')
+          dbService.fetchAll('activities'),
+          dbService.fetchAll('school_branding')
         ]);
 
         if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
@@ -144,6 +146,7 @@ const App: React.FC = () => {
         if (ctData.length) { setCustomTemplates(ctData); storage.set(DB_KEYS.CUSTOM_TEMPLATES, ctData); }
         if (subData.length) { setAvailableSubjects(subData); storage.set(DB_KEYS.SUBJECT_LIST, subData); }
         if (actData.length) { setActivities(actData); storage.set(DB_KEYS.ACTIVITY_LOG, actData); }
+        if (brandData) { setSchoolBranding(brandData as any); storage.set(DB_KEYS.SCHOOL_BRANDING, brandData); }
         
         setIsSyncing(false);
       } catch (err) {
@@ -192,12 +195,13 @@ const App: React.FC = () => {
   const updateFeeTransactions = createSyncUpdate(DB_KEYS.FEE_TRANSACTIONS, 'fee_transactions', setFeeTransactions);
   const updateCustomTemplates = createSyncUpdate(DB_KEYS.CUSTOM_TEMPLATES, 'custom_templates', setCustomTemplates);
   const updateActivities = createSyncUpdate(DB_KEYS.ACTIVITY_LOG, 'activities', setActivities);
+  const updateSchoolBranding = createSyncUpdate(DB_KEYS.SCHOOL_BRANDING, 'school_branding', setSchoolBranding);
 
   if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} />;
+      case 'dashboard': return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} />;
       case 'fee-reports': return <FeeReports students={students} transactions={feeTransactions} />;
       case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={students} />;
       case 'leaves': return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} />;
@@ -205,20 +209,20 @@ const App: React.FC = () => {
       case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} isDarkMode={isDarkMode} />;
       case 'activity': return <ActivityReport activities={activities} onClearLog={() => updateActivities([])} />;
       case 'students': return <StudentManagement students={students} setStudents={updateStudents} />;
-      case 'student-reports': return <StudentReports students={students} attendance={attendance} />;
+      case 'student-reports': return <StudentReports students={students} attendance={attendance} branding={schoolBranding} />;
       case 'exam-entry': return <ExamEntry user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
       case 'teachers': return <TeacherManagement teachers={teachers} setTeachers={updateTeachers} />;
       case 'food': return <FoodChart user={currentUser} foodChart={foodChart} onUpdateFoodChart={updateFoodChart} />;
       case 'curriculum': return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} />;
-      case 'marksheet': return <MarksheetManager user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} />;
-      case 'certs': return <CertificateHub students={students} />;
+      case 'marksheet': return <MarksheetManager user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} branding={schoolBranding} />;
+      case 'certs': return <CertificateHub students={students} branding={schoolBranding} />;
       case 'attendance': return <Attendance user={currentUser} students={students} attendance={attendance} setAttendance={updateAttendance} />;
       case 'notices': return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} students={students} />;
       case 'homework': return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} />;
       case 'fees': return <FeesManager user={currentUser} students={students} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} />;
       case 'fees-setup': return <FeesManager user={currentUser} students={students} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" />;
-      case 'icards': return <ICardGenerator students={students} user={currentUser} />;
-      default: return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} />;
+      case 'icards': return <ICardGenerator students={students} user={currentUser} branding={schoolBranding} />;
+      default: return <Dashboard user={currentUser} students={students} notices={notices} homeworks={homeworks} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} />;
     }
   };
 
@@ -241,7 +245,7 @@ const App: React.FC = () => {
                <i className="fa-solid fa-bars-staggered"></i>
             </button>
             <div className="flex flex-col">
-               <span className={`font-black text-xs tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>DIGITAL EDU</span>
+               <span className={`font-black text-xs tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{(schoolBranding?.name || 'DIGITAL CORE').toUpperCase()}</span>
                <span className={`text-[7px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Academy Node</span>
             </div>
          </div>
@@ -255,7 +259,22 @@ const App: React.FC = () => {
          </div>
       </div>
 
-      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={() => { setCurrentUser(null); storage.clear(DB_KEYS.USER); }} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar 
+        role={currentUser.role} 
+        activeTab={activeTab} 
+        setActiveTab={updateViewedStamp} 
+        onLogout={() => { setCurrentUser(null); storage.clear(DB_KEYS.USER); }} 
+        userName={currentUser.name} 
+        isDarkMode={isDarkMode} 
+        toggleTheme={() => setIsDarkMode(!isDarkMode)} 
+        unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} 
+        currentLang={currentLang} 
+        toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)}
+        branding={schoolBranding}
+        onUpdateBranding={updateSchoolBranding}
+      />
       
       <main className="flex-1 overflow-y-auto mobile-scroll p-4 md:p-12 relative z-10 custom-scrollbar">
         <div className="max-w-7xl mx-auto pb-10">{renderContent()}</div>
