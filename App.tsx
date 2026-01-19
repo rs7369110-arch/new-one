@@ -179,6 +179,19 @@ const App: React.FC = () => {
     };
   };
 
+  const createSyncDelete = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T[]>>) => {
+    return async (id: string) => {
+      setter(prev => prev.filter((item: any) => item.id !== id));
+      const currentLocal = storage.get<T[]>(key, []);
+      storage.set(key, currentLocal.filter((item: any) => item.id !== id));
+      try {
+        await dbService.delete(table, id);
+      } catch (err) {
+        console.error(`Delete Sync Error [${table}]:`, err);
+      }
+    };
+  };
+
   const updateNotices = createSyncUpdate(DB_KEYS.NOTICES, 'notices', setNotices);
   const updateStudents = createSyncUpdate(DB_KEYS.STUDENTS, 'students', setStudents);
   const updateTeachers = createSyncUpdate(DB_KEYS.TEACHERS, 'teachers', setTeachers);
@@ -197,6 +210,11 @@ const App: React.FC = () => {
   const updateActivities = createSyncUpdate(DB_KEYS.ACTIVITY_LOG, 'activities', setActivities);
   const updateSchoolBranding = createSyncUpdate(DB_KEYS.SCHOOL_BRANDING, 'school_branding', setSchoolBranding);
 
+  // Specific Deletion Handlers for Database Sync
+  const deleteHomework = createSyncDelete(DB_KEYS.HOMEWORK, 'homework', setHomeworks);
+  const deleteStudent = createSyncDelete(DB_KEYS.STUDENTS, 'students', setStudents);
+  const deleteNotice = createSyncDelete(DB_KEYS.NOTICES, 'notices', setNotices);
+
   if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
   const renderContent = () => {
@@ -208,7 +226,7 @@ const App: React.FC = () => {
       case 'messages': return <MessageManager user={currentUser} messages={messages} onUpdateMessages={updateMessages} />;
       case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} isDarkMode={isDarkMode} />;
       case 'activity': return <ActivityReport activities={activities} onClearLog={() => updateActivities([])} />;
-      case 'students': return <StudentManagement students={students} setStudents={updateStudents} />;
+      case 'students': return <StudentManagement user={currentUser} students={students} setStudents={updateStudents} onDelete={deleteStudent} />;
       case 'student-reports': return <StudentReports students={students} attendance={attendance} branding={schoolBranding} />;
       case 'exam-entry': return <ExamEntry user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
       case 'teachers': return <TeacherManagement teachers={teachers} setTeachers={updateTeachers} />;
@@ -218,7 +236,7 @@ const App: React.FC = () => {
       case 'certs': return <CertificateHub students={students} branding={schoolBranding} />;
       case 'attendance': return <Attendance user={currentUser} students={students} attendance={attendance} setAttendance={updateAttendance} />;
       case 'notices': return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} students={students} />;
-      case 'homework': return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} />;
+      case 'homework': return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} onDelete={deleteHomework} />;
       case 'fees': return <FeesManager user={currentUser} students={students} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} />;
       case 'fees-setup': return <FeesManager user={currentUser} students={students} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" />;
       case 'icards': return <ICardGenerator students={students} user={currentUser} branding={schoolBranding} />;

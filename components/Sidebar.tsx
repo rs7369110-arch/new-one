@@ -39,7 +39,7 @@ interface MenuItem {
 const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'dashboard', labels: { [Language.EN]: 'Dashboard', [Language.GU]: 'ડેશબોર્ડ' }, icon: 'fa-house-chimney', color: 'hover:text-amber-400', active: 'from-amber-500/20 to-transparent border-amber-500', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], lightIconColor: 'text-red-500' },
   { id: 'attendance', labels: { [Language.EN]: 'Attendance', [Language.GU]: 'હાજરી' }, icon: 'fa-calendar-check', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], color: 'hover:text-orange-400', active: 'from-orange-500/20 to-transparent border-orange-500', lightIconColor: 'text-orange-500' },
-  { id: 'students', labels: { [Language.EN]: 'Student Entry', [Language.GU]: 'વિદ્યાર્થી એન્ટ્રી' }, icon: 'fa-user-plus', color: 'hover:text-emerald-400', active: 'from-emerald-500/20 to-transparent border-emerald-500', roles: [UserRole.ADMIN], lightIconColor: 'text-yellow-500' },
+  { id: 'students', labels: { [Language.EN]: 'Student Entry', [Language.GU]: 'વિદ્યાર્થી એન્ટ્રી' }, icon: 'fa-user-plus', color: 'hover:text-emerald-400', active: 'from-emerald-500/20 to-transparent border-emerald-500', roles: [UserRole.ADMIN, UserRole.TEACHER], lightIconColor: 'text-yellow-500' },
   { id: 'teachers', labels: { [Language.EN]: 'Teacher Entry', [Language.GU]: 'શિક્ષક એન્ટ્રી' }, icon: 'fa-chalkboard-user', color: 'hover:text-rose-400', active: 'from-rose-500/20 to-transparent border-rose-500', roles: [UserRole.ADMIN], lightIconColor: 'text-lime-500' },
   { id: 'fees', labels: { [Language.EN]: 'Fees Pay', [Language.GU]: 'ફી ભરો' }, icon: 'fa-coins', roles: [UserRole.ADMIN, UserRole.PARENT, UserRole.STUDENT], color: 'hover:text-pink-400', active: 'from-pink-500/20 to-transparent border-pink-500', lightIconColor: 'text-emerald-500' },
   { id: 'fee-reports', labels: { [Language.EN]: 'Fee Reports', [Language.GU]: 'ફી રિપોર્ટ' }, icon: 'fa-money-bill-trend-up', roles: [UserRole.ADMIN], color: 'hover:text-emerald-500', active: 'from-emerald-500/20 to-transparent border-emerald-500', lightIconColor: 'text-emerald-600' },
@@ -194,12 +194,17 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
           {filteredMenuItems.map((item) => {
             const badgeValue = getBadgeForTab(item.id);
             const isActive = activeTab === item.id;
+            const isAttendance = item.id === 'attendance';
             
             return (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-4 px-5 py-3 rounded-[1.4rem] transition-all duration-500 group relative overflow-hidden ${
+                className={`w-full flex items-center gap-4 transition-all duration-500 group relative overflow-hidden ${
+                  isAttendance 
+                    ? 'px-4 py-2 rounded-[1.1rem]' 
+                    : 'px-5 py-3 rounded-[1.4rem]'
+                } ${
                   isActive 
                     ? isDarkMode 
                       ? `bg-gradient-to-r ${item.active} text-white shadow-lg scale-[1.01] border-l-4`
@@ -209,10 +214,10 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
                       : `text-slate-400 hover:bg-slate-50`
                 }`}
               >
-                <div className={`w-6 flex justify-center transition-all duration-500 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
-                  <i className={`fa-solid ${item.icon} text-sm`}></i>
+                <div className={`w-6 flex justify-center transition-all duration-500 ${isActive ? 'scale-110' : 'group-hover:scale-105'} ${isAttendance ? 'scale-90' : ''}`}>
+                  <i className={`fa-solid ${item.icon} ${isAttendance ? 'text-xs' : 'text-sm'}`}></i>
                 </div>
-                <span className={`font-black tracking-widest text-[10px] uppercase transition-all duration-500 ${isActive ? 'translate-x-0.5' : ''}`}>
+                <span className={`font-black tracking-widest uppercase transition-all duration-500 ${isActive ? 'translate-x-0.5' : ''} ${isAttendance ? 'text-[9px]' : 'text-[10px]'}`}>
                   {item.labels[currentLang]}
                 </span>
                 {badgeValue > 0 && (

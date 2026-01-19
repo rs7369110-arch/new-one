@@ -98,6 +98,7 @@ export interface Student {
   dob: string;
   grade: string;
   section: string;
+  medium: 'ENGLISH' | 'GUJARATI';
   parentName: string;
   phone: string;
   emergencyContact: string;
@@ -110,7 +111,7 @@ export interface Student {
   address?: string;
   admissionDate?: string;
   academicYear?: string;
-  gender?: string;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
   bloodGroup?: string;
   fatherName?: string;
   motherName?: string;

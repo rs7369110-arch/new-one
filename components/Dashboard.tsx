@@ -18,6 +18,7 @@ interface DashboardProps {
   lang: Language;
   branding: SchoolBranding;
   onUpdateBranding: (brand: SchoolBranding) => void;
+  setActiveTab?: (tab: string) => void;
 }
 
 const translations = {
@@ -62,7 +63,7 @@ const translations = {
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  user, students, notices, onUpdateNotices, homeworks, onUpdateHomework, attendance, teachers, onUpdateTeachers, isDarkMode, lang, branding, onUpdateBranding
+  user, students, notices, onUpdateNotices, homeworks, onUpdateHomework, attendance, teachers, onUpdateTeachers, isDarkMode, lang, branding, onUpdateBranding, setActiveTab
 }) => {
   const t = translations[lang];
   const isParent = user.role === UserRole.PARENT;
@@ -122,20 +123,20 @@ const Dashboard: React.FC<DashboardProps> = ({
       const feeRatio = myChild.totalFees > 0 ? (myChild.paidFees / myChild.totalFees) * 100 : 0;
 
       return [
-        { label: t.attendance, value: `${attRatio.toFixed(0)}%`, icon: 'fa-user-check', color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
-        { label: t.collection, value: `${feeRatio.toFixed(0)}%`, icon: 'fa-vault', color: 'text-purple-500', bg: 'bg-purple-500/5' },
-        { label: 'Homework', value: homeworks.filter(h => h.grade === myChild.grade).length, icon: 'fa-scroll', color: 'text-blue-500', bg: 'bg-blue-500/5' },
-        { label: 'Notices', value: notices.filter(n => n.targetGrades.includes('All') || n.targetGrades.includes(myChild.grade)).length, icon: 'fa-tower-broadcast', color: 'text-amber-500', bg: 'bg-amber-500/5' },
+        { id: 'attendance', label: t.attendance, value: `${attRatio.toFixed(0)}%`, icon: 'fa-user-check', color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
+        { id: 'fees', label: t.collection, value: `${feeRatio.toFixed(0)}%`, icon: 'fa-vault', color: 'text-purple-500', bg: 'bg-purple-500/5' },
+        { id: 'homework', label: 'Homework', value: homeworks.filter(h => h.grade === myChild.grade).length, icon: 'fa-scroll', color: 'text-blue-500', bg: 'bg-blue-500/5' },
+        { id: 'notices', label: 'Notices', value: notices.filter(n => n.targetGrades.includes('All') || n.targetGrades.includes(myChild.grade)).length, icon: 'fa-tower-broadcast', color: 'text-amber-500', bg: 'bg-amber-500/5' },
       ];
     }
 
     const totalExpected = students.reduce((acc, s) => acc + s.totalFees, 0);
     const totalPaid = students.reduce((acc, s) => acc + s.paidFees, 0);
     return [
-      { label: t.students, value: students.length, icon: 'fa-user-graduate', color: 'text-blue-500', bg: 'bg-blue-500/5' },
-      { label: t.presentToday, value: attendance.filter(a => a.date === new Date().toISOString().split('T')[0] && a.status === 'PRESENT').length, icon: 'fa-user-check', color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
-      { label: t.liveNotices, value: notices.length, icon: 'fa-tower-broadcast', color: 'text-amber-500', bg: 'bg-amber-500/5' },
-      { label: t.collection, value: `${Math.round((totalPaid / (totalExpected || 1)) * 100)}%`, icon: 'fa-vault', color: 'text-purple-500', bg: 'bg-purple-500/5' },
+      { id: 'students', label: t.students, value: students.length, icon: 'fa-user-graduate', color: 'text-blue-500', bg: 'bg-blue-500/5' },
+      { id: 'attendance', label: t.presentToday, value: attendance.filter(a => a.date === new Date().toISOString().split('T')[0] && a.status === 'PRESENT').length, icon: 'fa-user-check', color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
+      { id: 'notices', label: t.liveNotices, value: notices.length, icon: 'fa-tower-broadcast', color: 'text-amber-500', bg: 'bg-amber-500/5' },
+      { id: 'fees', label: t.collection, value: `${Math.round((totalPaid / (totalExpected || 1)) * 100)}%`, icon: 'fa-vault', color: 'text-purple-500', bg: 'bg-purple-500/5' },
     ];
   }, [isParent, myChild, students, attendance, notices, homeworks, t]);
 
@@ -230,11 +231,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                </p>
             </div>
          </div>
+         {isStaff && (
+           <div className="flex gap-2">
+              <button 
+                onClick={() => setActiveTab?.('homework')}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2"
+              >
+                <i className="fa-solid fa-book-open"></i> Homework Hub
+              </button>
+           </div>
+         )}
       </header>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map((item) => (
-          <div key={item.label} className="bento-card p-4 rounded-2xl flex items-center gap-3">
+          <button 
+            key={item.label} 
+            onClick={() => setActiveTab?.(item.id)}
+            className="bento-card p-4 rounded-2xl flex items-center gap-3 text-left"
+          >
              <div className={`w-8 h-8 rounded-lg ${item.bg} ${item.color} flex items-center justify-center text-sm`}>
                 <i className={`fa-solid ${item.icon}`}></i>
              </div>
@@ -242,7 +257,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest leading-tight">{item.label}</p>
                 <p className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.value}</p>
              </div>
-          </div>
+          </button>
         ))}
       </div>
 

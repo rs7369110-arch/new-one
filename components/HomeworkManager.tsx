@@ -6,17 +6,26 @@ interface HomeworkProps {
   user: User;
   homeworks: Homework[];
   setHomeworks: (h: Homework[]) => void;
+  onDelete?: (id: string) => void;
   students?: Student[];
 }
 
-const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomeworks, students }) => {
+const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomeworks, onDelete, students }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newHw, setNewHw] = useState({ subject: '', title: '', description: '', dueDate: '', grade: '' });
+  const [hwToDelete, setHwToDelete] = useState<{id: string, title: string} | null>(null);
+  
+  const [newHw, setNewHw] = useState({ 
+    subject: '', 
+    title: '', 
+    description: '', 
+    dueDate: '', 
+    grade: '' 
+  });
+  
   const [attachment, setAttachment] = useState<Homework['attachment'] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Access rights check: Admin and Teachers have full control
   const isStaff = user.role === UserRole.ADMIN || user.role === UserRole.TEACHER;
   const isParent = user.role === UserRole.PARENT;
 
@@ -67,22 +76,19 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
     if (!isStaff) return;
 
     if (editingId) {
-      // Logic for UPDATING an existing record
-      const confirmUpdate = window.confirm(`CONFIRM UPDATE: Save all modifications to "${newHw.title}"?`);
-      if (!confirmUpdate) return;
-
       const updatedHomeworks = homeworks.map(h => 
-        h.id === editingId ? { ...h, ...newHw, attachment: attachment || undefined } : h
+        h.id === editingId ? { ...h, ...newHw, attachment: attachment || h.attachment } : h
       );
       setHomeworks(updatedHomeworks);
+      alert("✅ Homework updated successfully!");
     } else {
-      // Logic for CREATING a new record
       const homework: Homework = {
         id: "HW-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
         ...newHw,
         attachment: attachment || undefined
       };
       setHomeworks([...homeworks, homework]);
+      alert("✅ New homework published successfully!");
     }
     resetForm();
   };
@@ -99,19 +105,20 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
     });
     setAttachment(h.attachment || null);
     setIsAdding(true);
-    // Smooth scroll to the form for better UX
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDelete = (id: string, title: string) => {
-    if (!isStaff) return;
-    // Explicit confirmation for DELETE action
-    const confirmed = window.confirm(`🚨 PERMANENT DELETE: Are you absolutely sure you want to remove "${title}"? This will erase the lesson and all attached PDF/Image files permanently.`);
-    if (confirmed) {
-      const newList = homeworks.filter(item => item.id !== id);
+  const confirmDelete = () => {
+    if (!hwToDelete) return;
+    if (onDelete) {
+      onDelete(hwToDelete.id);
+    } else {
+      const newList = homeworks.filter(item => item.id !== hwToDelete.id);
       setHomeworks(newList);
-      if (editingId === id) resetForm();
     }
+    if (editingId === hwToDelete.id) resetForm();
+    setHwToDelete(null);
+    alert("🗑️ Homework deleted permanently.");
   };
 
   const openAttachment = (data: string) => {
@@ -267,7 +274,7 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
                      <i className="fa-solid fa-pen-nib text-xl"></i>
                    </button>
                    <button 
-                     onClick={() => handleDelete(h.id, h.title)} 
+                     onClick={() => setHwToDelete({id: h.id, title: h.title})} 
                      className="w-16 h-16 rounded-[2rem] bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shadow-lg transform hover:scale-110 active:scale-90"
                      title="Permanently Remove"
                    >
@@ -277,7 +284,6 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
                )}
             </div>
             
-            {/* Background Decoration */}
             <div className="absolute -bottom-10 -left-10 text-indigo-50 opacity-10 text-[12rem] group-hover:rotate-12 transition-transform duration-1000 pointer-events-none">
                <i className="fa-solid fa-graduation-cap"></i>
             </div>
@@ -293,12 +299,55 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
         )}
       </div>
 
+      {/* CUSTOM DELETE CONFIRMATION MODAL */}
+      {hwToDelete && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6">
+           <div 
+             className="absolute inset-0 bg-indigo-950/90 backdrop-blur-xl animate-fade-in" 
+             onClick={() => setHwToDelete(null)}
+           ></div>
+           
+           <div className="bg-white rounded-[3.5rem] p-12 max-w-md w-full relative z-10 shadow-2xl border-t-[15px] border-rose-500 animate-scale-in flex flex-col items-center text-center">
+              <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-inner">
+                 <i className="fa-solid fa-trash-can"></i>
+              </div>
+              
+              <h2 className="text-3xl font-black text-indigo-950 uppercase tracking-tighter mb-4">Erase Homework?</h2>
+
+              <div className="p-6 bg-gray-50 rounded-2xl w-full mb-10 border border-gray-100">
+                 <p className="text-base font-black text-gray-800 line-clamp-2 italic">"{hwToDelete.title}"</p>
+              </div>
+
+              <p className="text-sm text-gray-500 font-medium leading-relaxed mb-12">
+                 Are you sure you want to delete this homework? This action will remove the record and any attachments from the system forever.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4 w-full">
+                 <button 
+                   onClick={() => setHwToDelete(null)}
+                   className="py-5 bg-gray-100 text-gray-500 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest hover:bg-gray-200 transition-all"
+                 >
+                    CANCEL
+                 </button>
+                 <button 
+                   onClick={confirmDelete}
+                   className="py-5 bg-rose-500 text-white rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-rose-200 hover:bg-rose-600 transition-all"
+                 >
+                    YES, DELETE
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
       <style>{`
         @keyframes slideUp { 
           from { transform: translateY(40px); opacity: 0; } 
           to { transform: translateY(0); opacity: 1; } 
         }
         .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-scale-in { animation: scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
       `}</style>
     </div>
   );
