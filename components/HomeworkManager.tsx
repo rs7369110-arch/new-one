@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { User, UserRole, Homework, Student } from '../types';
 
 interface HomeworkProps {
@@ -11,10 +11,14 @@ interface HomeworkProps {
 
 const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomeworks, students }) => {
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newHw, setNewHw] = useState({ subject: '', title: '', description: '', dueDate: '', grade: '' });
+  const [attachment, setAttachment] = useState<Homework['attachment'] | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Access rights check: Admin and Teachers have full control
+  const isStaff = user.role === UserRole.ADMIN || user.role === UserRole.TEACHER;
   const isParent = user.role === UserRole.PARENT;
-  const isAdmin = user.role === UserRole.ADMIN;
 
   const myChild = useMemo(() => {
     return isParent ? students?.find(s => s.id === user.studentId) : null;
@@ -27,116 +31,275 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
     return homeworks.slice().reverse();
   }, [homeworks, isParent, myChild]);
 
-  const handleAdd = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isAdmin) return;
-    const homework: Homework = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...newHw
-    };
-    setHomeworks([...homeworks, homework]);
+  const resetForm = () => {
     setIsAdding(false);
+    setEditingId(null);
     setNewHw({ subject: '', title: '', description: '', dueDate: '', grade: '' });
+    setAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const type = file.type.includes('pdf') ? 'PDF' : 'IMAGE';
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (file.size > maxSize) {
+        alert("File too large! Maximum 5MB allowed for academic archives.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachment({
+          data: reader.result as string,
+          name: file.name,
+          type: type as any
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isStaff) return;
+
+    if (editingId) {
+      // Logic for UPDATING an existing record
+      const confirmUpdate = window.confirm(`CONFIRM UPDATE: Save all modifications to "${newHw.title}"?`);
+      if (!confirmUpdate) return;
+
+      const updatedHomeworks = homeworks.map(h => 
+        h.id === editingId ? { ...h, ...newHw, attachment: attachment || undefined } : h
+      );
+      setHomeworks(updatedHomeworks);
+    } else {
+      // Logic for CREATING a new record
+      const homework: Homework = {
+        id: "HW-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        ...newHw,
+        attachment: attachment || undefined
+      };
+      setHomeworks([...homeworks, homework]);
+    }
+    resetForm();
+  };
+
+  const handleEdit = (h: Homework) => {
+    if (!isStaff) return;
+    setEditingId(h.id);
+    setNewHw({
+      subject: h.subject,
+      title: h.title,
+      description: h.description,
+      dueDate: h.dueDate,
+      grade: h.grade
+    });
+    setAttachment(h.attachment || null);
+    setIsAdding(true);
+    // Smooth scroll to the form for better UX
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = (id: string, title: string) => {
-    if (!isAdmin) return;
-    const confirmed = window.confirm(`⚠️ DANGER: You are about to delete the assignment "${title}". This will remove the quest for ALL students in the class. Do you wish to proceed?`);
+    if (!isStaff) return;
+    // Explicit confirmation for DELETE action
+    const confirmed = window.confirm(`🚨 PERMANENT DELETE: Are you absolutely sure you want to remove "${title}"? This will erase the lesson and all attached PDF/Image files permanently.`);
     if (confirmed) {
-      setHomeworks(homeworks.filter(item => item.id !== id));
+      const newList = homeworks.filter(item => item.id !== id);
+      setHomeworks(newList);
+      if (editingId === id) resetForm();
+    }
+  };
+
+  const openAttachment = (data: string) => {
+    const win = window.open();
+    if (win) {
+      win.document.write(
+        `<html><body style="margin:0; background:#111; display:flex; align-items:center; justify-content:center;">
+          <iframe src="${data}" frameborder="0" style="border:0; width:100vw; height:100vh;" allowfullscreen></iframe>
+        </body></html>`
+      );
     }
   };
 
   return (
-    <div className="space-y-8 animate-fade-in pb-20">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 animate-fade-in pb-24">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-           <h1 className="text-3xl font-black text-indigo-900 tracking-tighter uppercase leading-none">
-              Academy Quests
+           <h1 className="text-4xl font-black text-indigo-950 tracking-tighter uppercase leading-none">
+              Homework Hub
            </h1>
-           <p className="text-gray-500 font-bold text-[10px] uppercase tracking-[0.4em] mt-2 italic">
-             {isParent ? `Assigned tasks for Class ${myChild?.grade}` : 'Staff deployment board'}
+           <p className="text-indigo-500 font-bold text-[10px] uppercase tracking-[0.5em] mt-3 italic">
+             {isParent ? `Assigned Tasks • Class ${myChild?.grade}` : 'Master Academic Registry Control Panel'}
            </p>
         </div>
-        {isAdmin && (
+        {isStaff && (
           <button 
-            onClick={() => setIsAdding(!isAdding)}
-            className={`px-8 py-4 rounded-[1.8rem] font-black shadow-lg transition-all flex items-center gap-2 transform hover:scale-105 active:scale-95 ${isAdding ? 'bg-rose-500 text-white' : 'bg-purple-600 text-white'}`}
+            onClick={() => isAdding ? resetForm() : setIsAdding(true)}
+            className={`px-10 py-5 rounded-[2.5rem] font-black shadow-2xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 ${isAdding ? 'bg-rose-500 text-white shadow-rose-200' : 'bg-indigo-600 text-white shadow-indigo-200'}`}
           >
-            <i className={`fa-solid ${isAdding ? 'fa-times' : 'fa-plus'}`}></i>
-            {isAdding ? 'Cancel Entry' : 'Post New Quest'}
+            <i className={`fa-solid ${isAdding ? 'fa-xmark' : 'fa-plus-circle'} text-xl`}></i>
+            <span className="text-sm uppercase tracking-widest">{isAdding ? 'Discard Entry' : 'Post New Lesson'}</span>
           </button>
         )}
-      </div>
+      </header>
 
-      {isAdding && isAdmin && (
-        <form onSubmit={handleAdd} className="bg-white p-10 rounded-[3.5rem] shadow-2xl border-4 border-purple-50 space-y-8 animate-slide-up relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+      {isAdding && isStaff && (
+        <form onSubmit={handleSave} className={`bg-white p-12 rounded-[4rem] shadow-2xl border-4 space-y-10 animate-slide-up relative overflow-hidden transition-all duration-500 ${editingId ? 'border-emerald-200 ring-4 ring-emerald-50' : 'border-indigo-50'}`}>
+          <div className={`absolute top-0 right-0 w-64 h-64 rounded-full -mr-32 -mt-32 opacity-20 ${editingId ? 'bg-emerald-500' : 'bg-indigo-500'}`}></div>
+          
+          <div className="flex items-center gap-5 relative z-10">
+             <div className={`w-16 h-16 rounded-[2rem] flex items-center justify-center text-2xl shadow-xl ${editingId ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'}`}>
+                <i className={`fa-solid ${editingId ? 'fa-pen-to-square' : 'fa-scroll'}`}></i>
+             </div>
+             <div>
+                <h2 className={`text-3xl font-black uppercase tracking-tight ${editingId ? 'text-emerald-700' : 'text-indigo-950'}`}>
+                  {editingId ? 'Update Registry Entry' : 'Initial Lesson Record'}
+                </h2>
+                {editingId && <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mt-1">Status: Modifying existing academic archive...</p>}
+             </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest ml-1">Subject</label>
-              <input required className="w-full px-6 py-4 rounded-2xl bg-purple-50/50 border-2 border-transparent focus:bg-white focus:border-purple-400 outline-none font-black transition-all" value={newHw.subject} onChange={e => setNewHw({...newHw, subject: e.target.value})} placeholder="Maths, Science, etc." />
+              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-2">Subject</label>
+              <input required className="w-full px-8 py-5 rounded-[2rem] bg-gray-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-indigo-900 shadow-inner transition-all" value={newHw.subject} onChange={e => setNewHw({...newHw, subject: e.target.value})} placeholder="e.g. Science" />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest ml-1">Class</label>
-              <select required className="w-full px-6 py-4 rounded-2xl bg-purple-50/50 border-2 border-transparent focus:bg-white focus:border-purple-400 outline-none font-black transition-all" value={newHw.grade} onChange={e => setNewHw({...newHw, grade: e.target.value})}>
+              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-2">Target Grade</label>
+              <select required className="w-full px-8 py-5 rounded-[2rem] bg-gray-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-indigo-900 shadow-inner transition-all appearance-none" value={newHw.grade} onChange={e => setNewHw({...newHw, grade: e.target.value})}>
                 <option value="">Select Grade</option>
                 {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n.toString()}>Class {n}</option>)}
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest ml-1">Due Date</label>
-              <input required type="date" className="w-full px-6 py-4 rounded-2xl bg-purple-50/50 border-2 border-transparent focus:bg-white focus:border-purple-400 outline-none font-black transition-all" value={newHw.dueDate} onChange={e => setNewHw({...newHw, dueDate: e.target.value})} />
+              <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-2">Deadline Date</label>
+              <input required type="date" className="w-full px-8 py-5 rounded-[2rem] bg-gray-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-indigo-900 shadow-inner transition-all" value={newHw.dueDate} onChange={e => setNewHw({...newHw, dueDate: e.target.value})} />
             </div>
           </div>
+
           <div className="space-y-2 relative z-10">
-            <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest ml-1">Quest Title</label>
-            <input required className="w-full px-6 py-4 rounded-2xl bg-purple-50/50 border-2 border-transparent focus:bg-white focus:border-purple-400 outline-none font-black transition-all" value={newHw.title} onChange={e => setNewHw({...newHw, title: e.target.value})} placeholder="Chapter Title..." />
+            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-2">Topic Title</label>
+            <input required className="w-full px-8 py-5 rounded-[2rem] bg-gray-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-black text-xl text-indigo-950 shadow-inner transition-all" value={newHw.title} onChange={e => setNewHw({...newHw, title: e.target.value})} placeholder="Lesson Heading..." />
           </div>
+
           <div className="space-y-2 relative z-10">
-            <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest ml-1">Task Context</label>
-            <textarea required rows={3} className="w-full px-8 py-6 rounded-[2rem] bg-purple-50/50 border-2 border-transparent focus:bg-white focus:border-purple-400 outline-none font-medium text-gray-700 shadow-inner" value={newHw.description} onChange={e => setNewHw({...newHw, description: e.target.value})} placeholder="Detailed explanation..." />
+            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-2">Detailed Instructions</label>
+            <textarea required rows={4} className="w-full px-10 py-8 rounded-[3rem] bg-gray-50 border-4 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-medium text-gray-700 shadow-inner transition-all text-lg leading-relaxed" value={newHw.description} onChange={e => setNewHw({...newHw, description: e.target.value})} placeholder="Explain the assignment tasks..." />
           </div>
-          <div className="flex justify-end relative z-10">
-             <button type="submit" className="px-12 py-5 bg-purple-900 text-white rounded-[2rem] font-black shadow-2xl hover:bg-black transition-all">Assign Now</button>
+
+          <div className="space-y-3 relative z-10">
+             <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-2">Academic Material (PDF/Image)</label>
+             <div className="flex flex-wrap items-center gap-6 p-10 bg-indigo-50/50 rounded-[3rem] border-4 border-dashed border-indigo-100 transition-all hover:bg-indigo-50">
+                <button 
+                   type="button" 
+                   onClick={() => fileInputRef.current?.click()}
+                   className="px-10 py-5 bg-white border-2 border-indigo-600 text-indigo-600 rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all shadow-xl active:scale-95"
+                >
+                   <i className="fa-solid fa-file-arrow-up mr-2"></i>
+                   {attachment ? 'Replace Document' : 'Attach Material'}
+                </button>
+                {attachment && (
+                  <div className="flex items-center gap-4 bg-emerald-50 text-emerald-600 px-6 py-4 rounded-2xl border border-emerald-100 animate-fade-in">
+                     <i className={`fa-solid ${attachment.type === 'PDF' ? 'fa-file-pdf' : 'fa-image'} text-xl`}></i>
+                     <span className="text-[10px] font-black truncate max-w-[200px]">{attachment.name}</span>
+                     <button type="button" onClick={() => setAttachment(null)} className="text-rose-500 hover:scale-125 transition-transform" title="Remove attachment">
+                        <i className="fa-solid fa-circle-xmark"></i>
+                     </button>
+                  </div>
+                )}
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="application/pdf,image/*" />
+             </div>
+          </div>
+
+          <div className="flex justify-end gap-5 relative z-10 pt-6">
+             <button type="button" onClick={resetForm} className="px-12 py-5 bg-gray-100 text-gray-500 rounded-[2rem] font-black uppercase text-[10px] tracking-widest hover:bg-gray-200 transition-all">Abort Entry</button>
+             <button type="submit" className={`px-16 py-5 text-white rounded-[2.5rem] font-black shadow-2xl transition-all uppercase text-xs tracking-widest flex items-center gap-4 ${editingId ? 'bg-emerald-600 hover:bg-black shadow-emerald-200' : 'bg-indigo-950 hover:bg-black shadow-indigo-200'}`}>
+               <i className={`fa-solid ${editingId ? 'fa-cloud-arrow-up' : 'fa-paper-plane'} text-xl`}></i>
+               {editingId ? 'Sync Modification' : 'Commit to Registry'}
+             </button>
           </div>
         </form>
       )}
 
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-10">
         {displayHomeworks.length > 0 ? displayHomeworks.map(h => (
-          <div key={h.id} className="bg-white p-8 rounded-[3.5rem] shadow-xl border border-gray-100 flex flex-col lg:flex-row gap-8 lg:items-center hover:shadow-2xl transition-all relative overflow-hidden group">
+          <div key={h.id} className="bg-white p-10 rounded-[4.5rem] shadow-xl border-2 border-indigo-50 flex flex-col lg:flex-row gap-10 lg:items-center hover:shadow-2xl transition-all relative overflow-hidden group">
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="px-4 py-1.5 bg-purple-50 text-purple-700 text-[10px] font-black rounded-xl uppercase tracking-widest border border-purple-100">{h.subject}</span>
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Class {h.grade}</span>
+              <div className="flex items-center gap-4 mb-4">
+                <span className="px-5 py-1.5 bg-indigo-50 text-indigo-700 text-[10px] font-black rounded-xl uppercase tracking-widest border border-indigo-100 shadow-sm">{h.subject}</span>
+                <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Master ID: {h.id}</span>
               </div>
-              <h3 className="text-xl font-black text-indigo-950 tracking-tight mb-2">{h.title}</h3>
-              <p className="text-gray-500 font-medium text-sm leading-relaxed line-clamp-2 italic">"{h.description}"</p>
+              <h3 className="text-3xl font-black text-indigo-950 tracking-tighter mb-4 uppercase group-hover:text-indigo-600 transition-colors">Class {h.grade}: {h.title}</h3>
+              <div className="p-8 bg-gray-50 rounded-[3rem] border border-indigo-50/50 mb-6">
+                 <p className="text-gray-600 font-medium text-lg leading-relaxed italic line-clamp-3">"{h.description}"</p>
+              </div>
+
+              {h.attachment && (
+                <button 
+                  onClick={() => openAttachment(h.attachment!.data)}
+                  className="px-8 py-4 bg-white text-indigo-600 rounded-[1.8rem] flex items-center gap-3 font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 hover:text-white transition-all border-2 border-indigo-100 shadow-md"
+                >
+                   <i className={`fa-solid ${h.attachment.type === 'PDF' ? 'fa-file-pdf' : 'fa-file-image'} text-xl`}></i>
+                   View Resource ({h.attachment.type})
+                </button>
+              )}
             </div>
             
-            <div className="flex items-center gap-10 lg:border-l lg:pl-10 lg:border-gray-100 shrink-0">
+            <div className="flex items-center gap-10 lg:border-l-4 lg:pl-12 lg:border-indigo-50 shrink-0">
                <div className="text-center min-w-[120px]">
-                 <p className="text-[9px] uppercase font-black text-gray-400 tracking-widest mb-1">Due By</p>
-                 <p className="font-black text-rose-500 text-lg">{new Date(h.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                 <p className="text-[9px] uppercase font-black text-indigo-300 tracking-[0.3em] mb-2">Registry Due</p>
+                 <div className="bg-rose-50 px-4 py-2 rounded-2xl border border-rose-100">
+                    <p className="font-black text-rose-600 text-xl">{new Date(h.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                 </div>
                </div>
-               {isAdmin && (
-                 <button onClick={() => handleDelete(h.id, h.title)} className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shadow-sm">
-                   <i className="fa-solid fa-trash-can text-lg"></i>
-                 </button>
+               
+               {isStaff && (
+                 <div className="flex flex-col gap-3">
+                   <button 
+                     onClick={() => handleEdit(h)} 
+                     className="w-16 h-16 rounded-[2rem] bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center shadow-lg transform hover:scale-110 active:scale-90"
+                     title="Modify Registry Entry"
+                   >
+                     <i className="fa-solid fa-pen-nib text-xl"></i>
+                   </button>
+                   <button 
+                     onClick={() => handleDelete(h.id, h.title)} 
+                     className="w-16 h-16 rounded-[2rem] bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center shadow-lg transform hover:scale-110 active:scale-90"
+                     title="Permanently Remove"
+                   >
+                     <i className="fa-solid fa-trash-can text-xl"></i>
+                   </button>
+                 </div>
                )}
             </div>
-            <div className="absolute -bottom-6 -left-6 text-purple-50 opacity-10 text-8xl group-hover:rotate-12 transition-transform duration-700 pointer-events-none">
-               <i className="fa-solid fa-book-sparkles"></i>
+            
+            {/* Background Decoration */}
+            <div className="absolute -bottom-10 -left-10 text-indigo-50 opacity-10 text-[12rem] group-hover:rotate-12 transition-transform duration-1000 pointer-events-none">
+               <i className="fa-solid fa-graduation-cap"></i>
             </div>
           </div>
         )) : (
-          <div className="py-40 text-center bg-white/50 rounded-[5rem] border-4 border-dashed border-gray-100">
-             <i className="fa-solid fa-scroll text-gray-200 text-7xl mb-6"></i>
-             <p className="text-indigo-900 font-black text-2xl tracking-tighter uppercase">No Assignments Logged</p>
+          <div className="py-48 text-center bg-white rounded-[6rem] border-8 border-dashed border-indigo-50">
+             <div className="w-40 h-40 bg-indigo-50 text-indigo-100 rounded-full flex items-center justify-center text-8xl mx-auto mb-10 animate-pulse">
+                <i className="fa-solid fa-wind"></i>
+             </div>
+             <p className="text-indigo-950 font-black text-4xl tracking-tighter uppercase">Registry Quiet</p>
+             <p className="text-indigo-400 font-bold mt-4 italic text-xl max-w-md mx-auto">No assignments are currently recorded in the academic log.</p>
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes slideUp { 
+          from { transform: translateY(40px); opacity: 0; } 
+          to { transform: translateY(0); opacity: 1; } 
+        }
+        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+      `}</style>
     </div>
   );
 };

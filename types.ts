@@ -1,5 +1,4 @@
 
-
 export enum UserRole {
   ADMIN = 'ADMIN',
   STUDENT = 'STUDENT',
@@ -28,10 +27,6 @@ export interface SchoolBranding {
   themeColor: string;
 }
 
-/**
- * Global default branding configuration.
- * Moved to types.ts to be shared across App.tsx and Sidebar.tsx.
- */
 export const DEFAULT_BRANDING: SchoolBranding = {
   id: 'active_brand',
   name: 'Digital Education',
@@ -49,7 +44,7 @@ export interface FeeTransaction {
   amount: number;
   date: string;
   mode: PaymentMode;
-  method: string; // e.g., 'UPI', 'Cash', 'Card', 'Cheque'
+  method: string; 
   transactionId: string;
   remarks?: string;
 }
@@ -60,7 +55,7 @@ export interface User {
   role: UserRole;
   email: string;
   password?: string;
-  studentId?: string; // For parents/students to link to their records
+  studentId?: string;
 }
 
 export interface CustomProfileTemplate {
@@ -113,6 +108,27 @@ export interface Student {
   uidNo?: string;
   panNo?: string;
   address?: string;
+  admissionDate?: string;
+  academicYear?: string;
+  gender?: string;
+  bloodGroup?: string;
+  fatherName?: string;
+  motherName?: string;
+  guardianName?: string;
+  alternatePhone?: string;
+  email?: string;
+  fatherOccupation?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  permanentAddress?: string;
+  prevSchoolName?: string;
+  prevLastClass?: string;
+  tcNo?: string;
+  leavingReason?: string;
+  medicalConditions?: string;
+  allergies?: string;
+  emergencyContactName?: string;
 }
 
 export interface TeacherAssignment {
@@ -183,7 +199,7 @@ export interface SchoolMessage {
 }
 
 export interface AttendanceRecord {
-  id?: number; // Added for Supabase sync tracking
+  id?: number;
   date: string;
   studentId: string;
   status: 'PRESENT' | 'ABSENT' | 'LATE';
@@ -195,7 +211,7 @@ export interface Notice {
   content: string;
   date: string;
   category: 'EXAM' | 'HOLIDAY' | 'EVENT' | 'FEE' | 'URGENT' | 'GENERAL';
-  targetGrades: string[]; // ['All'] or specific grades like ['1', '10']
+  targetGrades: string[];
   isPinned?: boolean;
   attachment?: {
     data: string;
@@ -211,6 +227,11 @@ export interface Homework {
   description: string;
   dueDate: string;
   grade: string;
+  attachment?: {
+    data: string; // base64
+    name: string;
+    type: 'IMAGE' | 'PDF';
+  };
 }
 
 export interface FeeStructure {

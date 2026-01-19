@@ -46,7 +46,7 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'fees-setup', labels: { [Language.EN]: 'Fees Setup', [Language.GU]: 'ફી સેટઅપ' }, icon: 'fa-file-invoice-dollar', roles: [UserRole.ADMIN], color: 'hover:text-blue-400', active: 'from-blue-500/20 to-transparent border-blue-500', lightIconColor: 'text-teal-500' },
   { id: 'custom-builder', labels: { [Language.EN]: 'Profile Creator', [Language.GU]: 'પ્રોફાઇલ નિર્માતા' }, icon: 'fa-puzzle-piece', roles: [UserRole.ADMIN], color: 'hover:text-indigo-400', active: 'from-indigo-500/20 to-transparent border-indigo-500', lightIconColor: 'text-indigo-600' },
   { id: 'notices', labels: { [Language.EN]: 'Notice Board', [Language.GU]: 'નોટિસ બોર્ડ' }, icon: 'fa-bullhorn', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], color: 'hover:text-sky-400', active: 'from-sky-500/20 to-transparent border-sky-500', lightIconColor: 'text-amber-500' },
-  { id: 'homework', labels: { [Language.EN]: 'Homework', [Language.GU]: 'લેસન' }, icon: 'fa-scroll', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], color: 'hover:text-purple-400', active: 'from-purple-500/20 to-transparent border-purple-500', lightIconColor: 'text-sky-500' },
+  { id: 'homework', labels: { [Language.EN]: 'Homework Hub', [Language.GU]: 'હોમવર્ક હબ' }, icon: 'fa-book-atlas', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], color: 'hover:text-purple-400', active: 'from-purple-500/20 to-transparent border-purple-500', lightIconColor: 'text-purple-500' },
   { id: 'exam-entry', labels: { [Language.EN]: 'Exam Marks', [Language.GU]: 'પરીક્ષા માર્કસ' }, icon: 'fa-pen-to-square', color: 'hover:text-blue-400', active: 'from-blue-500/20 to-transparent border-blue-500', roles: [UserRole.ADMIN, UserRole.TEACHER], lightIconColor: 'text-blue-500' },
   { id: 'marksheet', labels: { [Language.EN]: 'Marksheets', [Language.GU]: 'માર્કશીટ' }, icon: 'fa-file-invoice', color: 'hover:text-cyan-400', active: 'from-cyan-500/20 to-transparent border-cyan-500', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], lightIconColor: 'text-indigo-500' },
   { id: 'leaves', labels: { [Language.EN]: 'Leave Portal', [Language.GU]: 'રજા પોર્ટલ' }, icon: 'fa-envelope-open-text', color: 'hover:text-rose-400', active: 'from-rose-500/20 to-transparent border-rose-500', roles: [UserRole.ADMIN, UserRole.TEACHER], lightIconColor: 'text-violet-500' },
@@ -187,7 +187,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
           </div>
         </div>
 
-        {/* SPACING COMPENSATOR FOR REMOVED CARD */}
+        {/* SPACING COMPENSATOR */}
         <div className="h-4"></div>
 
         <div className="flex-1 py-1 px-5 space-y-1.5 relative z-10 overflow-y-auto custom-scrollbar">

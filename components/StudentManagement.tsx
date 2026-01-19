@@ -7,50 +7,100 @@ interface StudentManagementProps {
   setStudents: (students: Student[]) => void;
 }
 
+/**
+ * InputField moved outside of the main component to prevent focus loss.
+ * Defining components inside render causes them to unmount and remount 
+ * on every state change (every keystroke), causing the typing problem.
+ */
+const InputField = ({ label, field, type = 'text', required = false, placeholder = '', options = [], value, onChange }: any) => (
+  <div className="space-y-1 w-full">
+    <label className="text-[10px] font-black text-teal-500 uppercase tracking-widest ml-1">{label} {required && '*'}</label>
+    {type === 'select' ? (
+      <select 
+        required={required}
+        className="w-full px-5 py-3 rounded-2xl bg-teal-50/40 border border-transparent focus:bg-white focus:border-teal-400 outline-none font-bold text-teal-900 transition-all"
+        value={value || ''}
+        onChange={e => onChange(field, e.target.value)}
+      >
+        <option value="">Select {label}</option>
+        {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+      </select>
+    ) : type === 'textarea' ? (
+      <textarea 
+        required={required}
+        className="w-full px-5 py-3 rounded-2xl bg-teal-50/40 border border-transparent focus:bg-white focus:border-teal-400 outline-none font-bold h-24 text-teal-900 transition-all"
+        placeholder={placeholder}
+        value={value || ''}
+        onChange={e => onChange(field, e.target.value)}
+      />
+    ) : (
+      <input 
+        required={required}
+        type={type}
+        className="w-full px-5 py-3 rounded-2xl bg-teal-50/40 border border-transparent focus:bg-white focus:border-teal-400 outline-none font-bold text-teal-900 transition-all"
+        placeholder={placeholder}
+        value={value || ''}
+        onChange={e => onChange(field, e.target.value)}
+      />
+    )}
+  </div>
+);
+
 const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStudents }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [formData, setFormData] = useState<Partial<Student>>({
+  
+  const initialForm: Partial<Student> = {
     name: '',
-    rollNo: '',
     admissionNo: '',
-    grNo: '',
-    dob: '',
+    admissionDate: new Date().toISOString().split('T')[0],
     grade: '',
-    section: '',
-    parentName: '',
+    section: 'A',
+    rollNo: '',
+    academicYear: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+    dob: '',
+    gender: 'MALE',
+    bloodGroup: '',
+    photo: '',
+    fatherName: '',
+    motherName: '',
+    guardianName: '',
     phone: '',
+    alternatePhone: '',
+    email: '',
+    fatherOccupation: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    permanentAddress: '',
+    prevSchoolName: '',
+    prevLastClass: '',
+    tcNo: '',
+    leavingReason: '',
+    medicalConditions: '',
+    allergies: '',
+    emergencyContactName: '',
     emergencyContact: '',
     totalFees: 0,
-    paidFees: 0,
-    photo: '',
-    aadharNo: '',
-    uidNo: '',
-    panNo: '',
-    address: ''
-  });
+    paidFees: 0
+  };
+
+  const [formData, setFormData] = useState<Partial<Student>>(initialForm);
+  const [isPermanentSame, setIsPermanentSame] = useState(false);
+
+  const handlePermanentSameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setIsPermanentSame(checked);
+    if (checked) {
+      setFormData(prev => ({ ...prev, permanentAddress: prev.address || '' }));
+    }
+  };
 
   const resetForm = () => {
-    setFormData({ 
-      name: '', 
-      rollNo: '', 
-      admissionNo: '', 
-      grNo: '',
-      dob: '', 
-      grade: '', 
-      section: '', 
-      parentName: '', 
-      phone: '', 
-      emergencyContact: '', 
-      totalFees: 0, 
-      paidFees: 0, 
-      photo: '',
-      aadharNo: '',
-      uidNo: '',
-      panNo: '',
-      address: ''
-    });
+    setFormData(initialForm);
+    setIsPermanentSame(false);
     setIsAdding(false);
     setEditingStudent(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -67,12 +117,22 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
     }
   };
 
+  // Centralized change handler to avoid unnecessary complexity in inputs
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const getParentName = (data: Partial<Student>) => {
+    return data.fatherName || data.guardianName || data.motherName || 'Not Specified';
+  };
+
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const student: Student = {
       id: Math.random().toString(36).substr(2, 9),
-      section: 'A',
-      ...formData as Student
+      ...formData as Student,
+      parentName: getParentName(formData),
+      permanentAddress: isPermanentSame ? formData.address! : (formData.permanentAddress || formData.address!)
     };
     setStudents([...students, student]);
     resetForm();
@@ -81,9 +141,13 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
   const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingStudent) return;
-    
     const updatedStudents = students.map(s => 
-      s.id === editingStudent.id ? { ...s, ...formData } as Student : s
+      s.id === editingStudent.id ? { 
+        ...s, 
+        ...formData, 
+        parentName: getParentName(formData),
+        permanentAddress: isPermanentSame ? formData.address : (formData.permanentAddress || formData.address) 
+      } as Student : s
     );
     setStudents(updatedStudents);
     resetForm();
@@ -99,11 +163,8 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
   const deleteStudent = (id: string) => {
     const confirmed = window.confirm('🚨 Are you sure you want to delete this Hero? This cannot be undone!');
     if (confirmed) {
-      if (editingStudent && editingStudent.id === id) {
-        resetForm();
-      }
-      const updatedList = students.filter(s => s.id !== id);
-      setStudents(updatedList);
+      if (editingStudent && editingStudent.id === id) resetForm();
+      setStudents(students.filter(s => s.id !== id));
     }
   };
 
@@ -111,330 +172,185 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ students, setStud
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-indigo-900">Student Directory</h1>
-          <p className="text-indigo-400 font-medium">Manage your school heroes and their profiles.</p>
+          <h1 className="text-3xl font-black text-teal-900">Student Entry Console</h1>
+          <p className="text-teal-500 font-medium">Register and archive academy heroes with precision.</p>
         </div>
         <button 
           onClick={() => {
             if (isAdding || editingStudent) resetForm();
             else setIsAdding(true);
           }}
-          className={`px-6 py-3 text-white rounded-[1.5rem] font-bold shadow-lg transition-all flex items-center gap-2 transform hover:scale-105 active:scale-95 ${
-            (isAdding || editingStudent) ? 'bg-rose-500 shadow-rose-100' : 'bg-gradient-to-r from-indigo-600 to-purple-600 shadow-indigo-100'
+          className={`px-8 py-4 text-white rounded-[1.8rem] font-bold shadow-xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 ${
+            (isAdding || editingStudent) ? 'bg-rose-500' : 'bg-teal-600 shadow-teal-900/10'
           }`}
         >
-          <i className={`fa-solid ${(isAdding || editingStudent) ? 'fa-times' : 'fa-plus'}`}></i>
-          {(isAdding || editingStudent) ? 'Cancel Action' : 'Add New Student'}
+          <i className={`fa-solid ${(isAdding || editingStudent) ? 'fa-xmark' : 'fa-user-plus'}`}></i>
+          {(isAdding || editingStudent) ? 'Cancel Process' : 'Register New Student'}
         </button>
       </div>
 
       {(isAdding || editingStudent) && (
-        <form onSubmit={editingStudent ? handleUpdate : handleAdd} className="bg-white p-8 rounded-[2.5rem] shadow-xl border-4 border-indigo-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+        <form onSubmit={editingStudent ? handleUpdate : handleAdd} className="bg-white p-10 rounded-[3rem] shadow-2xl border-4 border-teal-50 space-y-12 animate-fade-in relative overflow-hidden">
           
-          <div className="lg:col-span-3 mb-2 flex items-center justify-between border-b-2 border-indigo-50 pb-4">
-            <h2 className="text-xl font-black text-indigo-600 flex items-center gap-2">
-              <i className={`fa-solid ${editingStudent ? 'fa-user-pen' : 'fa-user-plus'}`}></i>
-              {editingStudent ? `Editing Hero: ${editingStudent.name}` : 'Register New Hero'}
+          {/* Section: Student Basics */}
+          <div className="space-y-8">
+            <h2 className="text-xl font-black text-teal-700 flex items-center gap-3 border-b-2 border-teal-50 pb-4">
+               <i className="fa-solid fa-graduation-cap"></i> Student Essentials
             </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               <div className="lg:row-span-3 flex flex-col items-center gap-4 p-6 bg-teal-50/20 rounded-[2.5rem] border-2 border-dashed border-teal-100">
+                  <div className="w-40 h-40 rounded-[2rem] bg-white shadow-lg overflow-hidden flex items-center justify-center relative group border-4 border-white">
+                    {formData.photo ? <img src={formData.photo} className="w-full h-full object-cover" /> : <i className="fa-solid fa-camera text-4xl text-teal-100"></i>}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                       <i className="fa-solid fa-upload text-white text-2xl"></i>
+                    </div>
+                  </div>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoChange} />
+                  <p className="text-[10px] font-black text-teal-400 uppercase">Profile Photo</p>
+               </div>
+               <InputField label="Student Full Name" field="name" required placeholder="Full name" value={formData.name} onChange={handleInputChange} />
+               <InputField label="Admission Number" field="admissionNo" required placeholder="ADM-001" value={formData.admissionNo} onChange={handleInputChange} />
+               <InputField label="Date of Admission" field="admissionDate" type="date" required value={formData.admissionDate} onChange={handleInputChange} />
+               <InputField label="Class / Grade" field="grade" type="select" required options={['1','2','3','4','5','6','7','8','9','10','11','12']} value={formData.grade} onChange={handleInputChange} />
+               <InputField label="Section" field="section" type="select" options={['A','B','C','D']} value={formData.section} onChange={handleInputChange} />
+               <InputField label="Roll Number" field="rollNo" required placeholder="e.g. 101" value={formData.rollNo} onChange={handleInputChange} />
+               <InputField label="Academic Year" field="academicYear" placeholder="2024-2025" value={formData.academicYear} onChange={handleInputChange} />
+               <InputField label="Date of Birth" field="dob" type="date" required value={formData.dob} onChange={handleInputChange} />
+               <InputField label="Gender" field="gender" type="select" required options={['MALE', 'FEMALE', 'OTHER']} value={formData.gender} onChange={handleInputChange} />
+               <InputField label="Blood Group" field="bloodGroup" type="select" options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']} value={formData.bloodGroup} onChange={handleInputChange} />
+            </div>
           </div>
 
-          {/* Photo Upload Column */}
-          <div className="lg:row-span-3 flex flex-col items-center justify-center p-6 bg-indigo-50/50 rounded-[2rem] border-2 border-dashed border-indigo-200 gap-4">
-             <div className="w-40 h-40 rounded-[2rem] bg-white border-4 border-white shadow-lg overflow-hidden flex items-center justify-center relative group">
-                {formData.photo ? (
-                  <img src={formData.photo} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <i className="fa-solid fa-camera text-4xl text-indigo-200"></i>
-                )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                   <i className="fa-solid fa-upload text-white text-2xl"></i>
-                </div>
-             </div>
-             <input 
-               type="file" 
-               accept="image/*" 
-               className="hidden" 
-               ref={fileInputRef} 
-               onChange={handlePhotoChange} 
-             />
-             <button 
-               type="button" 
-               onClick={() => fileInputRef.current?.click()}
-               className="text-sm font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest"
-             >
-               {formData.photo ? 'Change Photo' : 'Upload Photo'}
-             </button>
+          {/* Section: Parent Details */}
+          <div className="space-y-8">
+            <h2 className="text-xl font-black text-teal-700 flex items-center gap-3 border-b-2 border-teal-50 pb-4">
+               <i className="fa-solid fa-users"></i> Parent / Guardian Profile
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+               <InputField label="Father's Name" field="fatherName" required value={formData.fatherName} onChange={handleInputChange} />
+               <InputField label="Mother's Name" field="motherName" required value={formData.motherName} onChange={handleInputChange} />
+               <InputField label="Guardian Name (Optional)" field="guardianName" value={formData.guardianName} onChange={handleInputChange} />
+               <InputField label="Primary Mobile" field="phone" required type="tel" value={formData.phone} onChange={handleInputChange} />
+               <InputField label="Alternate Mobile" field="alternatePhone" type="tel" value={formData.alternatePhone} onChange={handleInputChange} />
+               <InputField label="Email Address" field="email" type="email" value={formData.email} onChange={handleInputChange} />
+               <InputField label="Father's Occupation" field="fatherOccupation" value={formData.fatherOccupation} onChange={handleInputChange} />
+            </div>
           </div>
 
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Full Name</label>
-            <input 
-              required
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              placeholder="e.g. Rahul Sharma"
-              value={formData.name} 
-              onChange={e => setFormData({...formData, name: e.target.value})} 
-            />
-          </div>
-
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Admission No</label>
-            <input 
-              required
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              placeholder="e.g. ADM-2024-001"
-              value={formData.admissionNo} 
-              onChange={e => setFormData({...formData, admissionNo: e.target.value})} 
-            />
-          </div>
-
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">GR Number</label>
-            <input 
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              placeholder="e.g. GR-9982"
-              value={formData.grNo} 
-              onChange={e => setFormData({...formData, grNo: e.target.value})} 
-            />
-          </div>
-
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Roll No</label>
-            <input 
-              required
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              placeholder="e.g. 101"
-              value={formData.rollNo} 
-              onChange={e => setFormData({...formData, rollNo: e.target.value})} 
-            />
-          </div>
-
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Date of Birth</label>
-            <input 
-              required
-              type="date"
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              value={formData.dob} 
-              onChange={e => setFormData({...formData, dob: e.target.value})} 
-            />
-          </div>
-
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Class / Standard</label>
-            <select 
-              required
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold appearance-none"
-              value={formData.grade}
-              onChange={e => setFormData({...formData, grade: e.target.value})}
-            >
-              <option value="">Select Class</option>
-              {[1,2,3,4,5,6,7,8,9,10,11,12].map(num => <option key={num} value={num.toString()}>Class {num}</option>)}
-            </select>
-          </div>
-
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Parent Name</label>
-            <input 
-              required
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              placeholder="Father's or Mother's Name"
-              value={formData.parentName} 
-              onChange={e => setFormData({...formData, parentName: e.target.value})} 
-            />
-          </div>
-
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Phone Number</label>
-            <input 
-              required
-              type="tel"
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              placeholder="e.g. 9876543210"
-              value={formData.phone} 
-              onChange={e => setFormData({...formData, phone: e.target.value})} 
-            />
-          </div>
-
-          <div className="space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Emergency Contact</label>
-            <input 
-              required
-              type="tel"
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              placeholder="Alternative number"
-              value={formData.emergencyContact} 
-              onChange={e => setFormData({...formData, emergencyContact: e.target.value})} 
-            />
-          </div>
-
-          {/* Identity Section */}
-          <div className="lg:col-span-3 pt-4 border-t-2 border-indigo-50 mt-2">
-             <h3 className="text-xs font-black text-amber-500 uppercase tracking-[0.3em] mb-4 flex items-center gap-2">
-                <i className="fa-solid fa-id-card"></i> Sensitive Identity Records
-             </h3>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Aadhar Number</label>
+          {/* Section: Address Details */}
+          <div className="space-y-8">
+            <div className="flex items-center justify-between border-b-2 border-teal-50 pb-4">
+               <h2 className="text-xl font-black text-teal-700 flex items-center gap-3">
+                  <i className="fa-solid fa-map-location-dot"></i> Residential Protocol
+               </h2>
+               <label className="flex items-center gap-3 cursor-pointer group">
                   <input 
-                    className="w-full px-5 py-3 rounded-2xl bg-amber-50/30 border border-transparent focus:bg-white focus:border-amber-300 outline-none transition-all font-bold" 
-                    placeholder="12 Digit Aadhar"
-                    maxLength={12}
-                    value={formData.aadharNo} 
-                    onChange={e => setFormData({...formData, aadharNo: e.target.value.replace(/\D/g, '')})} 
+                    type="checkbox" 
+                    className="w-5 h-5 rounded-lg border-2 border-teal-200 text-teal-600 focus:ring-teal-500" 
+                    checked={isPermanentSame}
+                    onChange={handlePermanentSameChange}
                   />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">UID Number</label>
-                  <input 
-                    className="w-full px-5 py-3 rounded-2xl bg-amber-50/30 border border-transparent focus:bg-white focus:border-amber-300 outline-none transition-all font-bold" 
-                    placeholder="Unique ID Number"
-                    value={formData.uidNo} 
-                    onChange={e => setFormData({...formData, uidNo: e.target.value})} 
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">PAN Number</label>
-                  <input 
-                    className="w-full px-5 py-3 rounded-2xl bg-amber-50/30 border border-transparent focus:bg-white focus:border-amber-300 outline-none transition-all font-bold uppercase" 
-                    placeholder="PAN Card No."
-                    value={formData.panNo} 
-                    onChange={e => setFormData({...formData, panNo: e.target.value.toUpperCase()})} 
-                  />
-                </div>
-             </div>
+                  <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest group-hover:text-teal-600 transition-colors">Permanent Address (Same as current ✔)</span>
+               </label>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               <div className="lg:col-span-2">
+                 <InputField label="Full Current Address" field="address" type="textarea" required placeholder="Address details..." value={formData.address} onChange={handleInputChange} />
+               </div>
+               <InputField label="City" field="city" required value={formData.city} onChange={handleInputChange} />
+               <InputField label="State" field="state" required value={formData.state} onChange={handleInputChange} />
+               <InputField label="Pincode" field="pincode" required value={formData.pincode} onChange={handleInputChange} />
+               {!isPermanentSame && (
+                 <div className="lg:col-span-4">
+                    <InputField label="Permanent Address" field="permanentAddress" type="textarea" placeholder="Enter permanent address..." value={formData.permanentAddress} onChange={handleInputChange} />
+                 </div>
+               )}
+            </div>
           </div>
 
-          <div className="lg:col-span-3 space-y-1">
-             <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Permanent Residential Address</label>
-             <textarea 
-               className="w-full px-5 py-4 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-medium h-24"
-               placeholder="Enter full address with City and Pin Code..."
-               value={formData.address}
-               onChange={e => setFormData({...formData, address: e.target.value})}
-             />
+          {/* Section: Previous School */}
+          <div className="space-y-8">
+            <h2 className="text-xl font-black text-teal-700 flex items-center gap-3 border-b-2 border-teal-50 pb-4">
+               <i className="fa-solid fa-landmark"></i> Academic Heritage
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               <InputField label="Previous School Name" field="prevSchoolName" value={formData.prevSchoolName} onChange={handleInputChange} />
+               <InputField label="Last Class Passed" field="prevLastClass" value={formData.prevLastClass} onChange={handleInputChange} />
+               <InputField label="Transfer Certificate (TC #)" field="tcNo" value={formData.tcNo} onChange={handleInputChange} />
+               <InputField label="Reason for Leaving" field="leavingReason" value={formData.leavingReason} onChange={handleInputChange} />
+            </div>
           </div>
 
-          <div className="lg:col-span-2 space-y-1 z-10">
-            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1">Annual Fee (₹)</label>
-            <input 
-              type="number"
-              className="w-full px-5 py-3 rounded-2xl bg-indigo-50/30 border border-transparent focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold" 
-              value={formData.totalFees} 
-              onChange={e => setFormData({...formData, totalFees: Number(e.target.value)})} 
-            />
+          {/* Section: Health & Emergency */}
+          <div className="space-y-8">
+            <h2 className="text-xl font-black text-teal-700 flex items-center gap-3 border-b-2 border-teal-50 pb-4">
+               <i className="fa-solid fa-heart-pulse"></i> Vitality & Emergency Protocol
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               <InputField label="Medical Conditions" field="medicalConditions" placeholder="None" value={formData.medicalConditions} onChange={handleInputChange} />
+               <InputField label="Allergy Details" field="allergies" placeholder="None" value={formData.allergies} onChange={handleInputChange} />
+               <InputField label="Emergency Contact Name" field="emergencyContactName" required value={formData.emergencyContactName} onChange={handleInputChange} />
+               <InputField label="Emergency Contact Number" field="emergencyContact" required type="tel" value={formData.emergencyContact} onChange={handleInputChange} />
+            </div>
           </div>
 
-          <div className="lg:col-span-3 flex justify-end gap-4 mt-6 pt-6 border-t border-indigo-50">
-             <button 
-              type="button"
-              onClick={resetForm}
-              className="px-8 py-4 bg-gray-100 text-gray-600 rounded-[2rem] font-black hover:bg-gray-200 transition-all"
-             >
-               Cancel
-             </button>
-             <button 
-              type="submit" 
-              className={`px-10 py-4 text-white rounded-[2rem] font-black shadow-lg transition-all transform hover:scale-105 ${editingStudent ? 'bg-gradient-to-r from-indigo-500 to-indigo-700 shadow-indigo-100' : 'bg-gradient-to-r from-emerald-500 to-teal-500 shadow-emerald-100'}`}
-             >
-               <i className={`fa-solid ${editingStudent ? 'fa-check-double' : 'fa-cloud-arrow-up'} mr-2`}></i>
-               {editingStudent ? 'Save Changes' : 'Create Hero Record'}
+          <div className="flex justify-end gap-4 pt-10 border-t border-teal-50">
+             <button type="button" onClick={resetForm} className="px-10 py-5 bg-gray-100 text-gray-500 rounded-[2rem] font-black uppercase text-xs tracking-widest hover:bg-gray-200 transition-all">Discard</button>
+             <button type="submit" className="px-16 py-5 bg-teal-900 text-white rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] shadow-2xl shadow-teal-200 hover:bg-black transition-all transform hover:scale-105">
+                {editingStudent ? 'Update Registry' : 'Initialize Hero Record'}
              </button>
           </div>
         </form>
       )}
 
-      <div className="bg-white rounded-[3rem] shadow-xl border border-indigo-50 overflow-hidden">
+      {/* Directory Table */}
+      <div className="bg-white rounded-[3rem] shadow-xl border border-teal-50 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-indigo-50/50">
-              <tr>
-                <th className="px-6 py-5 text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Adm / GR / Roll</th>
-                <th className="px-6 py-5 text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Super Hero</th>
-                <th className="px-6 py-5 text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Identity & Details</th>
-                <th className="px-6 py-5 text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Address & Parent</th>
-                <th className="px-6 py-5 text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] text-right">Actions</th>
+          <table className="w-full text-left">
+            <thead className="bg-teal-50/50">
+              <tr className="text-[10px] font-black text-teal-400 uppercase tracking-widest">
+                <th className="px-8 py-5">Hero Profile</th>
+                <th className="px-8 py-5">Adm / Roll</th>
+                <th className="px-8 py-5">Academic Year</th>
+                <th className="px-8 py-5">Emergency Link</th>
+                <th className="px-8 py-5 text-right">Operations</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-indigo-50">
+            <tbody className="divide-y divide-teal-50">
               {students.length > 0 ? students.map(s => (
-                <tr key={s.id} className={`transition-all group ${editingStudent?.id === s.id ? 'bg-indigo-100/50' : 'hover:bg-indigo-50/20'}`}>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-black text-indigo-300">{s.admissionNo}</span>
-                      <span className="text-[10px] font-bold text-amber-500">{s.grNo || 'No GR #'}</span>
-                      <span className="font-black text-indigo-600">Roll: {s.rollNo}</span>
+                <tr key={s.id} className="hover:bg-teal-50/20 transition-all group">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm font-black text-teal-600">
+                          {s.photo ? <img src={s.photo} className="w-full h-full object-cover" /> : s.name.charAt(0)}
+                       </div>
+                       <div>
+                          <p className="font-bold text-teal-950">{s.name}</p>
+                          <p className="text-[9px] font-black text-teal-400 uppercase mt-0.5">Class {s.grade} • Section {s.section}</p>
+                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-100 to-purple-100 flex items-center justify-center font-black text-indigo-600 text-sm shadow-sm group-hover:scale-110 transition-transform overflow-hidden border-2 border-white">
-                        {s.photo ? (
-                          <img src={s.photo} alt={s.name} className="w-full h-full object-cover" />
-                        ) : (
-                          s.name.charAt(0)
-                        )}
-                      </div>
-                      <div>
-                        <span className="font-bold text-gray-800 block">{s.name}</span>
-                        <span className="px-2 py-0.5 w-fit bg-amber-100 text-amber-700 rounded-lg text-[8px] font-black uppercase mt-1 tracking-wider">
-                          Class {s.grade}
-                        </span>
-                      </div>
-                    </div>
+                  <td className="px-8 py-5 font-black text-gray-400 text-xs">
+                     <p className="text-teal-600">{s.admissionNo}</p>
+                     <p className="mt-1">#{s.rollNo}</p>
                   </td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col gap-1">
-                      {s.aadharNo && (
-                        <span className="text-[10px] font-black text-gray-500 flex items-center gap-1">
-                           <i className="fa-solid fa-id-card-clip text-amber-400"></i> Aadhar: {s.aadharNo}
-                        </span>
-                      )}
-                      <span className="text-xs font-bold text-gray-400">DOB: {s.dob}</span>
-                      {s.panNo && <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">PAN: {s.panNo}</span>}
-                    </div>
+                  <td className="px-8 py-5 text-xs font-bold text-gray-500">{s.academicYear}</td>
+                  <td className="px-8 py-5 text-xs font-black text-teal-400">
+                     <p>{s.emergencyContactName}</p>
+                     <p className="text-rose-500 mt-0.5">{s.emergencyContact}</p>
                   </td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col text-sm max-w-[200px]">
-                      <span className="font-semibold text-gray-700 truncate">{s.parentName}</span>
-                      <span className="text-gray-400 text-[10px] font-bold truncate mt-0.5">
-                        <i className="fa-solid fa-location-dot mr-1"></i> {s.address || 'No Address Logged'}
-                      </span>
-                      <span className="text-rose-400 text-[10px] font-black flex items-center gap-1 mt-1">
-                        <i className="fa-solid fa-phone"></i> {s.phone}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-right">
-                    <div className="flex justify-end gap-3">
-                      <button 
-                        onClick={() => startEdit(s)}
-                        title="Modify Profile"
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all transform active:scale-90 ${editingStudent?.id === s.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-500 hover:bg-indigo-100'}`}
-                      >
-                        <i className="fa-solid fa-pen-to-square"></i>
-                      </button>
-                      <button 
-                        onClick={() => deleteStudent(s.id)}
-                        title="Delete Hero Profile"
-                        className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all transform active:scale-90 shadow-sm hover:shadow-rose-100 flex items-center justify-center"
-                      >
-                        <i className="fa-solid fa-trash-can"></i>
-                      </button>
+                  <td className="px-8 py-5 text-right">
+                    <div className="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <button onClick={() => startEdit(s)} className="w-10 h-10 bg-teal-50 text-teal-500 rounded-xl hover:bg-teal-600 hover:text-white transition-all"><i className="fa-solid fa-pen-nib"></i></button>
+                       <button onClick={() => deleteStudent(s.id)} className="w-10 h-10 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all"><i className="fa-solid fa-trash-can"></i></button>
                     </div>
                   </td>
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-24 text-center">
-                    <div className="flex flex-col items-center opacity-40">
-                      <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
-                        <i className="fa-solid fa-user-ninja text-6xl text-indigo-200 animate-bounce"></i>
-                      </div>
-                      <p className="text-indigo-900 font-black text-2xl">No heroes registered!</p>
-                      <p className="text-indigo-400 text-sm font-bold mt-2">Start by adding your first student to the academy.</p>
-                    </div>
+                  <td colSpan={5} className="py-32 text-center opacity-30">
+                     <i className="fa-solid fa-users-slash text-6xl mb-6 text-teal-100"></i>
+                     <p className="text-2xl font-black uppercase tracking-widest text-teal-200">Registry Clean</p>
                   </td>
                 </tr>
               )}
