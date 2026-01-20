@@ -8,20 +8,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
  * Converts object keys to snake_case and filters out null/undefined values.
- * Also handles an exclusion list to prevent schema errors.
  */
-const toSnakeCase = (obj: any, excludeKeys: string[] = []) => {
+const toSnakeCase = (obj: any, allowedKeys?: string[]) => {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
   const result: any = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      // Skip undefined or null values
       if (obj[key] === undefined || obj[key] === null) continue;
       
       const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
       
-      // Filter out specifically problematic keys if any
-      if (excludeKeys.includes(snakeKey)) continue;
+      // If allowedKeys is provided, only include keys that are in the list
+      if (allowedKeys && !allowedKeys.includes(snakeKey)) continue;
       
       result[snakeKey] = obj[key];
     }
@@ -69,34 +67,37 @@ export const dbService = {
   async upsert(table: string, payload: any) {
     try {
       let dataToPush: any;
-      // List of columns that definitely don't exist in Supabase even after SQL update
-      const exclude: string[] = [];
-      
+      let allowedColumns: string[] | undefined = undefined;
+
+      // FULL Updated List for Students table
       if (table === 'students') {
-        // These are fields that are calculated or not yet added to SQL
-        exclude.push('allergies', 'medical_conditions', 'leaving_reason', 'emergency_contact_name');
-        // Note: 'city', 'state', 'pincode', 'documents', 'status' are now IN the SQL, so removed from exclude.
+        allowedColumns = [
+          'id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender',
+          'blood_group', 'aadhar_no', 'photo', 'grade', 'section', 'medium',
+          'father_name', 'mother_name', 'guardian_name', 'father_occupation',
+          'phone', 'alternate_phone', 'email', 'address', 'city', 'state',
+          'pincode', 'permanent_address', 'prev_school_name', 'prev_last_class',
+          'tc_no', 'total_fees', 'paid_fees', 'status', 'academic_year',
+          'admission_date', 'documents', 'parent_name', 'emergency_contact',
+          'emergency_contact_name', 'uid_no', 'pan_no', 'leaving_reason',
+          'medical_conditions', 'allergies'
+        ];
       }
 
       if (table === 'subject_list') {
         dataToPush = { id: 'current_subjects', list: payload };
       } else if (table === 'school_branding') {
-        dataToPush = { ...toSnakeCase(payload, exclude), id: 'active_brand' };
+        dataToPush = { ...toSnakeCase(payload, allowedColumns), id: 'active_brand' };
       } else if (Array.isArray(payload)) {
-        // Handle bulk updates
         dataToPush = payload.map(item => {
           const cleaned = { ...item };
-          if (cleaned.id === undefined || cleaned.id === null || cleaned.id === '') {
-             delete cleaned.id; 
-          }
-          return toSnakeCase(cleaned, exclude);
+          if (cleaned.id === undefined || cleaned.id === null || cleaned.id === '') delete cleaned.id;
+          return toSnakeCase(cleaned, allowedColumns);
         });
       } else {
         const cleaned = { ...payload };
-        if (cleaned.id === undefined || cleaned.id === null || cleaned.id === '') {
-          delete cleaned.id;
-        }
-        dataToPush = toSnakeCase(cleaned, exclude);
+        if (cleaned.id === undefined || cleaned.id === null || cleaned.id === '') delete cleaned.id;
+        dataToPush = toSnakeCase(cleaned, allowedColumns);
       }
       
       let onConflict = 'id';
@@ -111,15 +112,16 @@ export const dbService = {
       });
       
       if (error) {
-        const errDetails = error.details || '';
-        const errMsg = error.message || 'Unknown Supabase Error';
-        console.error(`Supabase Upsert Error [${table}]:`, errMsg, errDetails);
-        throw new Error(`${errMsg}: ${errDetails}`);
+        // Log formatted error to help find missing columns
+        const detail = error.details || '';
+        const hint = error.hint || '';
+        console.error(`Supabase DB Error [${table}]:`, error.message, '| Detail:', detail, '| Hint:', hint);
+        throw new Error(`DB Error: ${error.message}`);
       }
       
       console.log(`Cloud Sync Success [${table}]`);
     } catch (err: any) {
-      console.error(`Upsert Exception [${table}]:`, err.message || err);
+      console.error(`Upsert Exception [${table}]:`, err.message);
       throw err;
     }
   },
