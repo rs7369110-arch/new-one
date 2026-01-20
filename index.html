@@ -39,15 +39,19 @@
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      // Improved SW registration: Detect environment and use relative path correctly
-      const swPath = './sw.js';
-      navigator.serviceWorker.register(swPath)
+      /**
+       * Resolve the Service Worker path relative to the current location 
+       * to prevent origin mismatch errors in frames.
+       */
+      const swUrl = './sw.js';
+      
+      navigator.serviceWorker.register(swUrl)
         .then(reg => {
-          console.log('SW Registered Successfully', reg.scope);
+          console.log('SW Registered successfully:', reg.scope);
         })
         .catch(err => {
-          // In AI Studio or restrictive sandboxes, we bypass without crashing
-          console.warn('SW registration bypassed (Expected in development/sandbox):', err.message);
+          // If registration fails (common in restricted sandboxes), we log a warning but keep the app functional.
+          console.warn('Service Worker registration bypassed or restricted in this environment:', err.message);
         });
     });
   }

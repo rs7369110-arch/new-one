@@ -130,6 +130,13 @@ export interface Student {
   medicalConditions?: string;
   allergies?: string;
   emergencyContactName?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  documents?: {
+    aadharCard?: string;
+    birthCert?: string;
+    prevMarksheet?: string;
+    transferCert?: string;
+  }
 }
 
 export interface TeacherAssignment {
