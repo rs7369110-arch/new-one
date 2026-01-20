@@ -84,6 +84,7 @@ const Attendance: React.FC<AttendanceProps> = ({ user, students, attendance, set
   const filteredStudents = useMemo(() => {
     return students
       .filter(s => 
+        s.status !== 'CANCELLED' &&
         s.grade === selectedGrade && 
         s.section === selectedSection && 
         s.medium === selectedMedium && 

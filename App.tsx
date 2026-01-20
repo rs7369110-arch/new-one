@@ -7,6 +7,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Sidebar from './components/Sidebar';
 import StudentManagement from './components/StudentManagement';
+import CancelledStudents from './components/CancelledStudents';
 import Attendance from './components/Attendance';
 import NoticeBoard from './components/NoticeBoard';
 import HomeworkManager from './components/HomeworkManager';
@@ -81,6 +82,28 @@ const App: React.FC = () => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, 4500);
   }, []);
+
+  // Centralized Activity Logger
+  const addActivity = useCallback(async (actionType: AdminActivity['actionType'], module: string, target: string, details?: string) => {
+    if (!currentUser) return;
+    const newActivity: AdminActivity = {
+      id: Math.random().toString(36).substr(2, 9),
+      adminName: currentUser.name,
+      actionType,
+      module,
+      target,
+      timestamp: new Date().toLocaleString(),
+      details
+    };
+    const updated = [...activities, newActivity];
+    setActivities(updated);
+    storage.set(DB_KEYS.ACTIVITY_LOG, updated);
+    try {
+      await dbService.upsert('activities', newActivity);
+    } catch (err) {
+      console.warn("Activity Sync Delayed:", err);
+    }
+  }, [currentUser, activities]);
 
   // INITIAL LOAD & SYNC
   useEffect(() => {
@@ -218,29 +241,32 @@ const App: React.FC = () => {
   if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
   const renderContent = () => {
+    const activeStudents = students.filter(s => s.status !== 'CANCELLED');
+
     switch (activeTab) {
-      case 'dashboard': return <Dashboard user={currentUser} students={students} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} />;
-      case 'fee-reports': return <FeeReports students={students} transactions={feeTransactions} />;
-      case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={students} />;
-      case 'leaves': return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} />;
+      case 'dashboard': return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} />;
+      case 'fee-reports': return <FeeReports students={activeStudents} transactions={feeTransactions} />;
+      case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={activeStudents} />;
+      case 'leaves': return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} onLogActivity={addActivity} />;
       case 'messages': return <MessageManager user={currentUser} messages={messages} onUpdateMessages={updateMessages} />;
-      case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} isDarkMode={isDarkMode} />;
+      case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} isDarkMode={isDarkMode} onLogActivity={addActivity} />;
       case 'activity': return <ActivityReport activities={activities} onClearLog={() => updateActivities([])} />;
-      case 'students': return <StudentManagement user={currentUser} students={students} setStudents={updateStudents} onDelete={deleteStudent} />;
-      case 'student-reports': return <StudentReports students={students} attendance={attendance} branding={schoolBranding} />;
-      case 'exam-entry': return <ExamEntry user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
-      case 'teachers': return <TeacherManagement teachers={teachers} setTeachers={updateTeachers} />;
+      case 'students': return <StudentManagement user={currentUser} students={students} setStudents={updateStudents} onDelete={deleteStudent} onLogActivity={addActivity} />;
+      case 'cancelled-students': return <CancelledStudents user={currentUser} students={students} onUpdateStudents={updateStudents} onLogActivity={addActivity} />;
+      case 'student-reports': return <StudentReports students={activeStudents} attendance={attendance} branding={schoolBranding} teachers={teachers} />;
+      case 'exam-entry': return <ExamEntry user={currentUser} students={activeStudents} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
+      case 'teachers': return <TeacherManagement teachers={teachers} setTeachers={updateTeachers} onLogActivity={addActivity} />;
       case 'food': return <FoodChart user={currentUser} foodChart={foodChart} onUpdateFoodChart={updateFoodChart} />;
-      case 'curriculum': return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} />;
-      case 'marksheet': return <MarksheetManager user={currentUser} students={students} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} branding={schoolBranding} />;
-      case 'certs': return <CertificateHub students={students} branding={schoolBranding} />;
-      case 'attendance': return <Attendance user={currentUser} students={students} attendance={attendance} setAttendance={updateAttendance} />;
-      case 'notices': return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} students={students} />;
-      case 'homework': return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} onDelete={deleteHomework} />;
-      case 'fees': return <FeesManager user={currentUser} students={students} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} />;
-      case 'fees-setup': return <FeesManager user={currentUser} students={students} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" />;
-      case 'icards': return <ICardGenerator students={students} user={currentUser} branding={schoolBranding} />;
-      default: return <Dashboard user={currentUser} students={students} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} />;
+      case 'curriculum': return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} onLogActivity={addActivity} />;
+      case 'marksheet': return <MarksheetManager user={currentUser} students={activeStudents} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} branding={schoolBranding} />;
+      case 'certs': return <CertificateHub students={activeStudents} branding={schoolBranding} />;
+      case 'attendance': return <Attendance user={currentUser} students={activeStudents} attendance={attendance} setAttendance={updateAttendance} />;
+      case 'notices': return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} students={activeStudents} onLogActivity={addActivity} />;
+      case 'homework': return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} onDelete={deleteHomework} students={activeStudents} onLogActivity={addActivity} />;
+      case 'fees': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} onLogActivity={addActivity} />;
+      case 'fees-setup': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" onLogActivity={addActivity} />;
+      case 'icards': return <ICardGenerator students={activeStudents} user={currentUser} branding={schoolBranding} />;
+      default: return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} />;
     }
   };
 

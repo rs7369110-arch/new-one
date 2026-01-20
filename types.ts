@@ -130,7 +130,10 @@ export interface Student {
   medicalConditions?: string;
   allergies?: string;
   emergencyContactName?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  cancelledDate?: string;
+  cancelledBy?: string;
+  cancelReason?: string;
   documents?: {
     aadharCard?: string;
     birthCert?: string;
@@ -141,11 +144,35 @@ export interface Student {
 
 export interface TeacherAssignment {
   id: string;
+  employeeId: string;
   teacherName: string;
-  subject: string;
-  grade: string;
-  phone?: string;
+  gender: 'MALE' | 'FEMALE' | 'OTHER';
+  dob: string;
+  bloodGroup?: string;
+  aadharNo?: string;
   photo?: string;
+  phone: string;
+  email: string;
+  address: string;
+  permanentAddress?: string;
+  designation: string; // PRT, TGT, PGT, Principal
+  subject: string;
+  joiningDate: string;
+  employmentType: 'PERMANENT' | 'CONTRACT' | 'GUEST';
+  experience: string;
+  qualification: string;
+  professionalDegree?: string;
+  university?: string;
+  passingYear?: string;
+  assignedGrades: string[];
+  assignedSections: string[];
+  isClassTeacher: boolean;
+  salaryType: 'MONTHLY' | 'HOURLY';
+  basicSalary: number;
+  bankName?: string;
+  accountNo?: string;
+  ifscCode?: string;
+  status: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface FoodItem {

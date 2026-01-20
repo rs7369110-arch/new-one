@@ -8,9 +8,10 @@ interface HomeworkProps {
   setHomeworks: (h: Homework[]) => void;
   onDelete?: (id: string) => void;
   students?: Student[];
+  onLogActivity: (actionType: 'CREATE' | 'UPDATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
 
-const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomeworks, onDelete, students }) => {
+const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomeworks, onDelete, students, onLogActivity }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [hwToDelete, setHwToDelete] = useState<{id: string, title: string} | null>(null);
@@ -80,6 +81,7 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
         h.id === editingId ? { ...h, ...newHw, attachment: attachment || h.attachment } : h
       );
       setHomeworks(updatedHomeworks);
+      onLogActivity('UPDATE', 'Homework Hub', newHw.title, `Modified lesson for Class ${newHw.grade}`);
       alert("✅ Homework updated successfully!");
     } else {
       const homework: Homework = {
@@ -88,6 +90,7 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
         attachment: attachment || undefined
       };
       setHomeworks([...homeworks, homework]);
+      onLogActivity('CREATE', 'Homework Hub', homework.title, `Assigned new homework to Class ${homework.grade}`);
       alert("✅ New homework published successfully!");
     }
     resetForm();
@@ -116,6 +119,7 @@ const HomeworkManager: React.FC<HomeworkProps> = ({ user, homeworks, setHomework
       const newList = homeworks.filter(item => item.id !== hwToDelete.id);
       setHomeworks(newList);
     }
+    onLogActivity('DELETE', 'Homework Hub', hwToDelete.title, 'Removed assignment from academic log.');
     if (editingId === hwToDelete.id) resetForm();
     setHwToDelete(null);
     alert("🗑️ Homework deleted permanently.");

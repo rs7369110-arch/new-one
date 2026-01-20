@@ -7,6 +7,7 @@ interface StudentManagementProps {
   students: Student[];
   setStudents: (students: Student[]) => void;
   onDelete: (id: string) => Promise<void>;
+  onLogActivity: (actionType: 'CREATE' | 'UPDATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
 
 const InputField = ({ label, field, type = 'text', required = false, placeholder = '', options = [], value, onChange }: any) => (
@@ -47,11 +48,13 @@ const InputField = ({ label, field, type = 'text', required = false, placeholder
   </div>
 );
 
-const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, setStudents, onDelete }) => {
+const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, setStudents, onDelete, onLogActivity }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string} | null>(null);
+  const [studentToCancel, setStudentToCancel] = useState<{id: string, name: string} | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [statusUpdateModal, setStatusUpdateModal] = useState<{id: string, name: string, current: string} | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -105,31 +108,16 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
 
   const filteredStudents = useMemo(() => {
     return students.filter(s => 
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.admissionNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.phone.includes(searchQuery)
+      s.status !== 'CANCELLED' && (
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.admissionNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.phone.includes(searchQuery)
+      )
     ).slice().reverse();
   }, [students, searchQuery]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleDocUpload = (docType: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({
-          ...prev,
-          documents: {
-            ...prev.documents,
-            [docType]: reader.result as string
-          }
-        }));
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const resetForm = () => {
@@ -149,8 +137,10 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
 
     if (editingStudent) {
       setStudents(students.map(s => s.id === editingStudent.id ? studentData : s));
+      onLogActivity('UPDATE', 'Student Registry', studentData.name, `Modified profile for ADM: ${studentData.admissionNo}`);
     } else {
       setStudents([...students, studentData]);
+      onLogActivity('CREATE', 'Student Registry', studentData.name, `Enrolled new student in Class ${studentData.grade}`);
     }
     resetForm();
   };
@@ -179,12 +169,36 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
     if (!isAdmin || !statusUpdateModal) return;
     
     const updated = students.map(s => s.id === statusUpdateModal.id ? { ...s, status } : s);
-    setStudents(updated);
+    setStudents(updated as Student[]);
+    onLogActivity('UPDATE', 'Student Registry', statusUpdateModal.name, `Changed enrollment status to ${status}`);
     setStatusUpdateModal(null);
+  };
+
+  const handleCancelStudent = () => {
+    if (!studentToCancel || !isAdmin) return;
+    
+    const updated = students.map(s => 
+      s.id === studentToCancel.id 
+        ? { 
+            ...s, 
+            status: 'CANCELLED', 
+            cancelledDate: new Date().toLocaleDateString(), 
+            cancelledBy: user.name, 
+            cancelReason 
+          } 
+        : s
+    );
+    
+    setStudents(updated as Student[]);
+    onLogActivity('DELETE', 'Student Registry', studentToCancel.name, `Moved student to Cancelled Archive. Reason: ${cancelReason || 'N/A'}`);
+    setStudentToCancel(null);
+    setCancelReason('');
+    alert(`Student ${studentToCancel.name} has been moved to Cancelled Archive.`);
   };
 
   const confirmDelete = async () => {
     if (!studentToDelete) return;
+    onLogActivity('DELETE', 'Student Registry', studentToDelete.name, `Permanently erased student record.`);
     await onDelete(studentToDelete.id);
     setStudentToDelete(null);
   };
@@ -341,7 +355,22 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
                             <i className={`fa-solid ${formData.documents?.[doc as keyof typeof formData.documents] ? 'fa-file-circle-check' : 'fa-file-arrow-up'}`}></i>
                          </div>
                          <p className="text-[10px] font-black text-teal-600 uppercase tracking-widest">{doc.replace(/([A-Z])/g, ' $1')}</p>
-                         <input type="file" className="hidden" id={doc} onChange={(e) => handleDocUpload(doc, e)} />
+                         <input type="file" className="hidden" id={doc} onChange={(e) => {
+                             const file = e.target.files?.[0];
+                             if (file) {
+                               const reader = new FileReader();
+                               reader.onloadend = () => {
+                                 setFormData(prev => ({
+                                   ...prev,
+                                   documents: {
+                                     ...prev.documents,
+                                     [doc]: reader.result as string
+                                   }
+                                 }));
+                               };
+                               reader.readAsDataURL(file);
+                             }
+                         }} />
                          <label htmlFor={doc} className="px-5 py-2 bg-white text-teal-600 rounded-xl text-[9px] font-black uppercase shadow-sm border border-teal-50 cursor-pointer hover:bg-teal-600 hover:text-white transition-all">
                             {formData.documents?.[doc as keyof typeof formData.documents] ? 'Replace' : 'Upload'}
                          </label>
@@ -461,6 +490,15 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
                        >
                          <i className="fa-solid fa-pen-nib group-hover/edit:rotate-12 transition-transform"></i>
                        </button>
+                       {isAdmin && (
+                        <button 
+                          onClick={() => setStudentToCancel({id: s.id, name: s.name})} 
+                          className="w-11 h-11 bg-rose-50 text-rose-500 rounded-[1.2rem] hover:bg-rose-600 hover:text-white transition-all shadow-sm flex items-center justify-center group/cancel"
+                          title="Cancel Student"
+                        >
+                          <i className="fa-solid fa-user-slash group-hover/cancel:scale-110 transition-transform"></i>
+                        </button>
+                       )}
                        <button 
                          onClick={() => setStudentToDelete({id: s.id, name: s.name})} 
                          className="w-11 h-11 bg-rose-50 text-rose-500 rounded-[1.2rem] hover:bg-rose-600 hover:text-white transition-all shadow-sm flex items-center justify-center group/del"
@@ -482,6 +520,37 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
           </table>
         </div>
       </div>
+
+      {/* CANCEL STUDENT MODAL */}
+      {studentToCancel && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6">
+           <div className="absolute inset-0 bg-teal-950/80 backdrop-blur-xl animate-fade-in" onClick={() => setStudentToCancel(null)}></div>
+           <div className="bg-white rounded-[4rem] p-12 max-w-md w-full relative z-10 shadow-2xl border-t-[15px] border-rose-500 animate-scale-in text-center">
+              <div className="w-24 h-24 bg-rose-50 text-rose-500 rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-8 shadow-inner">
+                 <i className="fa-solid fa-user-slash"></i>
+              </div>
+              <h2 className="text-3xl font-black text-teal-950 uppercase tracking-tighter mb-4">Cancel Entry?</h2>
+              <p className="text-sm font-bold text-gray-500 leading-relaxed mb-6">
+                Are you sure you want to cancel <strong>{studentToCancel.name}</strong>? This student will be moved to the Cancelled Students list and hidden from active modules.
+              </p>
+              
+              <div className="space-y-2 text-left mb-8">
+                <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest ml-1">Cancellation Reason (Optional)</label>
+                <textarea 
+                  className="w-full px-5 py-3 rounded-2xl bg-rose-50/50 border-2 border-transparent focus:bg-white focus:border-rose-400 outline-none font-bold text-rose-900 h-24"
+                  placeholder="e.g. Left school, Transfer, etc."
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                 <button onClick={() => setStudentToCancel(null)} className="py-5 bg-gray-100 text-gray-500 rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest">Back</button>
+                 <button onClick={handleCancelStudent} className="py-5 bg-rose-500 text-white rounded-[1.8rem] font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-rose-200">Confirm Cancel</button>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* DELETE CONFIRMATION MODAL */}
       {studentToDelete && (

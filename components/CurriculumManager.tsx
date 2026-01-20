@@ -6,12 +6,13 @@ interface CurriculumManagerProps {
   user: User;
   curriculum: CurriculumItem[];
   onUpdateCurriculum: (items: CurriculumItem[]) => void;
+  onLogActivity: (actionType: 'CREATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
 
-const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum, onUpdateCurriculum }) => {
+const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum, onUpdateCurriculum, onLogActivity }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState('All');
-  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<CurriculumItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<Partial<CurriculumItem>>({
@@ -59,6 +60,7 @@ const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum,
       ...(formData as CurriculumItem)
     };
     onUpdateCurriculum([...curriculum, newItem]);
+    onLogActivity('CREATE', 'Curriculum Master', newItem.title, `Uploaded syllabus for Class ${newItem.grade} (${newItem.subject})`);
     resetForm();
   };
 
@@ -69,7 +71,8 @@ const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum,
 
   const confirmDelete = () => {
     if (itemToDelete) {
-      onUpdateCurriculum(curriculum.filter(item => item.id !== itemToDelete));
+      onUpdateCurriculum(curriculum.filter(item => item.id !== itemToDelete.id));
+      onLogActivity('DELETE', 'Curriculum Master', itemToDelete.title, `Permanently removed curriculum file for Class ${itemToDelete.grade}.`);
       setItemToDelete(null);
     }
   };
@@ -241,7 +244,7 @@ const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum,
                   </button>
                   {user.role === UserRole.ADMIN ? (
                     <button 
-                      onClick={() => setItemToDelete(item.id)}
+                      onClick={() => setItemToDelete(item)}
                       className="flex items-center justify-center gap-2 py-4 bg-rose-50 text-rose-500 rounded-2xl font-black text-sm hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                     >
                        <i className="fa-solid fa-trash-can"></i>

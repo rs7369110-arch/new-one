@@ -6,13 +6,14 @@ interface NoticeBoardProps {
   user: User;
   notices: Notice[];
   setNotices: (notices: Notice[]) => void;
-  students?: Student[]; // Optional: for filtering by user's grade if they are a student
+  students?: Student[];
+  onLogActivity: (actionType: 'CREATE' | 'UPDATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
 
 const CATEGORIES = ['ALL', 'URGENT', 'EXAM', 'HOLIDAY', 'FEE', 'EVENT', 'GENERAL'];
 const CLASSES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 
-const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, students }) => {
+const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, students, onLogActivity }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -30,10 +31,8 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
   const [attachment, setAttachment] = useState<Notice['attachment'] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Authorization Check
   const isAdmin = user.role === UserRole.ADMIN || user.role === UserRole.TEACHER;
   
-  // Find current user's grade if they are a student or parent
   const currentUserGrade = useMemo(() => {
     if (user.role === UserRole.STUDENT || user.role === UserRole.PARENT) {
       if (user.studentId) {
@@ -102,6 +101,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
         n.id === editingId ? { ...n, ...formData, targetGrades: finalGrades, attachment: attachment || undefined } : n
       );
       setNotices(updated as Notice[]);
+      onLogActivity('UPDATE', 'Notice Board', formData.title || 'Untitled', `Updated announcement for ${finalGrades.join(', ')}`);
     } else {
       const newNotice: Notice = {
         id: "NT-" + Math.random().toString(36).substr(2, 6).toUpperCase(),
@@ -111,6 +111,7 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
         attachment: attachment || undefined
       };
       setNotices([...notices, newNotice]);
+      onLogActivity('CREATE', 'Notice Board', newNotice.title, `Published new official notice for ${finalGrades.join(', ')}`);
     }
     resetForm();
   };
@@ -135,30 +136,27 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
     if (!isAdmin || !noticeToDelete) return;
     const newList = notices.filter(n => n.id !== noticeToDelete.id);
     setNotices(newList);
+    onLogActivity('DELETE', 'Notice Board', noticeToDelete.title, 'Removed announcement from system feed.');
     if (editingId === noticeToDelete.id) resetForm();
     setNoticeToDelete(null);
   };
 
   const togglePin = (notice: Notice) => {
     if (!isAdmin) return;
-    setNotices(notices.map(n => n.id === notice.id ? { ...n, isPinned: !n.isPinned } : n));
+    const newStatus = !notice.isPinned;
+    setNotices(notices.map(n => n.id === notice.id ? { ...n, isPinned: newStatus } : n));
+    onLogActivity('UPDATE', 'Notice Board', notice.title, `${newStatus ? 'Pinned' : 'Unpinned'} announcement for high visibility.`);
   };
 
   const filteredNotices = useMemo(() => {
     return notices.filter(n => {
-      // Search check
       const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            n.content.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Category check
       const matchesCat = selectedCategory === 'ALL' || n.category === selectedCategory;
-      
-      // Grade check: Admins see everything. Students only see 'All' or their specific grade.
       let matchesGrade = true;
       if (user.role === UserRole.STUDENT || user.role === UserRole.PARENT) {
         matchesGrade = n.targetGrades.includes('All') || (currentUserGrade ? n.targetGrades.includes(currentUserGrade) : false);
       }
-
       return matchesSearch && matchesCat && matchesGrade;
     }).sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;

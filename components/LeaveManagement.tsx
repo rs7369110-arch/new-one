@@ -6,9 +6,10 @@ interface LeaveManagementProps {
   user: User;
   leaves: LeaveRequest[];
   onUpdateLeaves: (leaves: LeaveRequest[]) => void;
+  onLogActivity: (actionType: 'LEAVE_DECISION', module: string, target: string, details?: string) => void;
 }
 
-const LeaveManagement: React.FC<LeaveManagementProps> = ({ user, leaves, onUpdateLeaves }) => {
+const LeaveManagement: React.FC<LeaveManagementProps> = ({ user, leaves, onUpdateLeaves, onLogActivity }) => {
   const [isApplying, setIsApplying] = useState(false);
   const [formData, setFormData] = useState<Partial<LeaveRequest>>({
     type: 'Casual',
@@ -33,17 +34,20 @@ const LeaveManagement: React.FC<LeaveManagementProps> = ({ user, leaves, onUpdat
   };
 
   const handleDecision = (requestId: string, status: 'APPROVED' | 'REJECTED') => {
+    const targetLeave = leaves.find(l => l.id === requestId);
+    if (!targetLeave) return;
+    
     const remarks = window.prompt(`Enter formal remarks for this decision (Optional):`);
     const updated = leaves.map(l => 
       l.id === requestId ? { ...l, status, adminRemarks: remarks || '' } : l
     );
     onUpdateLeaves(updated);
+    onLogActivity('LEAVE_DECISION', 'Faculty Leave Registry', targetLeave.teacherName, `${status} leave from ${targetLeave.startDate} to ${targetLeave.endDate}. Remarks: ${remarks || 'None'}`);
   };
 
   const isAdmin = user.role === UserRole.ADMIN;
   const filteredLeaves = isAdmin ? leaves : leaves.filter(l => l.teacherId === user.id);
   
-  // Stats for the logged-in Teacher
   const teacherStats = {
     pending: leaves.filter(l => l.teacherId === user.id && l.status === 'PENDING').length,
     approved: leaves.filter(l => l.teacherId === user.id && l.status === 'APPROVED').length,

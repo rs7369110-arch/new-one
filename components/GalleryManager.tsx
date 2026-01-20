@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { User, UserRole, GalleryItem } from '../types';
 import Logo from './Logo';
@@ -7,6 +8,7 @@ interface GalleryManagerProps {
   gallery: GalleryItem[];
   onUpdateGallery: (items: GalleryItem[]) => void;
   isDarkMode: boolean;
+  onLogActivity: (actionType: 'CREATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
 
 interface PendingFile {
@@ -16,20 +18,18 @@ interface PendingFile {
   name: string;
 }
 
-const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdateGallery, isDarkMode }) => {
+const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdateGallery, isDarkMode, onLogActivity }) => {
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'IMAGE' | 'VIDEO'>('ALL');
   const [gradeFilter, setGradeFilter] = useState<'All' | string>('All');
   const [isAdding, setIsAdding] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<GalleryItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const [uploadGrades, setUploadGrades] = useState<string[]>(['1']);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Selection Mode for Bulk Delete
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isAdmin = user.role === UserRole.ADMIN;
@@ -38,7 +38,6 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
     if (!isAdmin || !e.target.files) return;
     
     setIsProcessing(true);
-    // Fixed: Cast Array.from result to File[] to avoid unknown property errors
     const files = Array.from(e.target.files) as File[];
     const newPending: PendingFile[] = [];
 
@@ -111,13 +110,15 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
     });
 
     onUpdateGallery([...gallery, ...newItems]);
+    onLogActivity('CREATE', 'Memory Wall', `${pendingFiles.length} Assets`, `Bulk published gallery items to Classes: ${uploadGrades.join(', ')}`);
     setPendingFiles([]);
     setIsAdding(false);
   };
 
   const confirmDelete = () => {
     if (!isAdmin || !itemToDelete) return;
-    onUpdateGallery(gallery.filter(item => item.id !== itemToDelete));
+    onUpdateGallery(gallery.filter(item => item.id !== itemToDelete.id));
+    onLogActivity('DELETE', 'Memory Wall', itemToDelete.title, `Permanently removed asset from Class ${itemToDelete.grade} archives.`);
     setItemToDelete(null);
   };
 
@@ -131,6 +132,7 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
     if (selectedIds.length === 0) return;
     if (window.confirm(`Permanently erase ${selectedIds.length} selected items?`)) {
       onUpdateGallery(gallery.filter(item => !selectedIds.includes(item.id)));
+      onLogActivity('DELETE', 'Memory Wall', 'Multiple Assets', `Bulk erased ${selectedIds.length} items from gallery registry.`);
       setSelectedIds([]);
       setIsSelectMode(false);
     }
@@ -362,7 +364,6 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                     </div>
                   )}
                   
-                  {/* Status Overlay for Selection */}
                   {isSelectMode && (
                     <div className={`absolute inset-0 flex items-center justify-center transition-all ${selectedIds.includes(item.id) ? 'bg-emerald-500/20' : 'bg-black/40 opacity-0 group-hover:opacity-100'}`}>
                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border-4 ${selectedIds.includes(item.id) ? 'bg-emerald-500 border-white text-white' : 'bg-white border-emerald-500 text-emerald-500'}`}>
@@ -371,17 +372,15 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                     </div>
                   )}
 
-                  {/* Individual Delete (Visible when NOT in select mode) */}
                   {isAdmin && !isSelectMode && (
                     <button 
-                      onClick={(e) => { e.stopPropagation(); setItemToDelete(item.id); }}
+                      onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }}
                       className="absolute top-4 right-4 w-11 h-11 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-600 hover:rotate-12"
                     >
                        <i className="fa-solid fa-trash-can"></i>
                     </button>
                   )}
 
-                  {/* Badges */}
                   {!isSelectMode && (
                     <div className="absolute top-4 left-4 flex flex-col gap-2">
                        <span className={`px-3 py-1 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-lg bg-indigo-600 text-white border border-white/10`}>
@@ -410,7 +409,6 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
         )}
       </div>
 
-      {/* Lightbox Preview */}
       {selectedItem && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 md:p-12 lg:p-20">
            <div className="absolute inset-0 bg-[#0a0a0c]/98 backdrop-blur-3xl animate-fade-in" onClick={() => setSelectedItem(null)}></div>
@@ -454,7 +452,6 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {itemToDelete && isAdmin && (
         <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6">
            <div className="absolute inset-0 bg-[#0a0a0c]/95 backdrop-blur-xl animate-fade-in" onClick={() => setItemToDelete(null)}></div>
@@ -466,7 +463,7 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
               <p className="text-xs text-slate-400 font-black uppercase tracking-widest mb-12">Permanently delete this item from archives.</p>
               <div className="grid grid-cols-2 gap-5">
                  <button onClick={() => setItemToDelete(null)} className={`py-6 rounded-[2rem] font-black text-[11px] uppercase transition-all ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Abort</button>
-                 <button onClick={confirmDelete} className="py-6 bg-rose-500 text-white rounded-[2rem] font-black text-[11px] uppercase shadow-2xl transition-all">Delete</button>
+                 <button onClick={confirmDelete} className="py-6 bg-rose-50 text-white rounded-[2rem] font-black text-[11px] uppercase shadow-2xl transition-all">Delete</button>
               </div>
            </div>
         </div>

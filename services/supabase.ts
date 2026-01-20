@@ -84,6 +84,18 @@ export const dbService = {
         ];
       }
 
+      // FULL Updated List for Teachers table
+      if (table === 'teachers') {
+        allowedColumns = [
+          'id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group',
+          'aadhar_no', 'photo', 'phone', 'email', 'address', 'permanent_address',
+          'designation', 'subject', 'joining_date', 'employment_type',
+          'experience', 'qualification', 'professional_degree', 'university',
+          'passing_year', 'assigned_grades', 'assigned_sections', 'is_class_teacher',
+          'salary_type', 'basic_salary', 'bank_name', 'account_no', 'ifsc_code', 'status'
+        ];
+      }
+
       if (table === 'subject_list') {
         dataToPush = { id: 'current_subjects', list: payload };
       } else if (table === 'school_branding') {
@@ -112,7 +124,6 @@ export const dbService = {
       });
       
       if (error) {
-        // Log formatted error to help find missing columns
         const detail = error.details || '';
         const hint = error.hint || '';
         console.error(`Supabase DB Error [${table}]:`, error.message, '| Detail:', detail, '| Hint:', hint);

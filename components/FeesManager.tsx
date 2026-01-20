@@ -11,10 +11,11 @@ interface FeesProps {
   transactions: FeeTransaction[];
   onUpdateTransactions: (t: FeeTransaction[]) => void;
   initialMode?: 'COLLECTION' | 'SETUP';
+  onLogActivity: (actionType: 'PAYMENT', module: string, target: string, details?: string) => void;
 }
 
 const FeesManager: React.FC<FeesProps> = ({ 
-  user, students, setStudents, feeStructures, onUpdateFeeStructures, transactions, onUpdateTransactions, initialMode 
+  user, students, setStudents, feeStructures, onUpdateFeeStructures, transactions, onUpdateTransactions, initialMode, onLogActivity 
 }) => {
   const [viewMode, setViewMode] = useState<'COLLECTION' | 'SETUP'>(initialMode || 'COLLECTION');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -78,6 +79,7 @@ const FeesManager: React.FC<FeesProps> = ({
 
     setStudents(updatedStudents);
     onUpdateTransactions([...transactions, newTransaction]);
+    onLogActivity('PAYMENT', 'Finance Control', selectedStudent.name, `Recorded payment of ₹${paymentAmount} via ${paymentMethod}. Receipt: ${receiptId}`);
     setIsProcessing(false);
     setPaymentAmount(0);
     alert(`Payment Successful!\nReceipt: ${receiptId}`);
@@ -139,7 +141,7 @@ const FeesManager: React.FC<FeesProps> = ({
                            <p className="font-black text-gray-800 text-base">{s.name}</p>
                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Class {s.grade} • Roll {s.rollNo}</p>
                         </td>
-                        <td className="px-10 py-6 font-black text-gray-600">₹{s.totalFees}</td>
+                        <td className="px-10 py-6 font-bold text-gray-600">₹{s.totalFees}</td>
                         <td className="px-10 py-6 font-black text-emerald-600">₹{s.paidFees}</td>
                         <td className="px-10 py-6 text-right">
                            <button onClick={() => {setSelectedStudent(s); setShowHistory(true);}} className="px-6 py-2.5 bg-indigo-950 text-white text-[9px] font-black uppercase rounded-xl shadow-xl hover:bg-indigo-600 transition-all">Record Entry</button>
