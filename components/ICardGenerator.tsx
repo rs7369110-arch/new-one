@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Student, UserRole, User, SchoolBranding } from '../types';
 import Logo from './Logo';
 import { storage, DB_KEYS } from '../db';
@@ -68,6 +68,7 @@ declare var html2pdf: any;
 
 const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, branding }) => {
   const [selectedId, setSelectedId] = useState<string>('');
+  const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState<'IDENTITY' | 'LAYOUT'>('IDENTITY');
@@ -96,12 +97,18 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
 
   const [overrides, setOverrides] = useState<Partial<Student>>({});
   const isAdmin = user.role === UserRole.ADMIN;
-  const rawStudent = students.find(s => s.id === selectedId);
-  const student = rawStudent ? { ...rawStudent, ...overrides } : null;
+
+  const displayStudents = useMemo(() => {
+    if (selectedGrade) {
+      return students.filter(s => s.grade === selectedGrade && s.status !== 'CANCELLED');
+    }
+    const single = students.find(s => s.id === selectedId);
+    return single ? [single] : [];
+  }, [students, selectedGrade, selectedId]);
 
   useEffect(() => {
     setOverrides({});
-  }, [selectedId]);
+  }, [selectedId, selectedGrade]);
 
   const updateSettings = (updates: Partial<IDSettings>) => {
     const newSettings = { ...settings, ...updates };
@@ -132,15 +139,22 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
 
   const handleDownloadPDF = async () => {
     const element = document.getElementById('id-card-printable-container');
-    if (!element || !student) return;
+    if (!element || displayStudents.length === 0) return;
+    
     setIsDownloading(true);
+    const fileName = selectedGrade 
+      ? `Class_${selectedGrade}_ID_Cards.pdf` 
+      : `${displayStudents[0].name.replace(/\s+/g, '_')}_ID.pdf`;
+
     const opt = {
-      margin: 10,
-      filename: `${student.name.replace(/\s+/g, '_')}_ID.pdf`,
+      margin: [10, 10, 10, 10],
+      filename: fileName,
       image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
+
     try {
       await html2pdf().set(opt).from(element).save();
     } finally {
@@ -186,6 +200,69 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
     </div>
   );
 
+  // Individual Card Component to reuse in bulk view
+  const CardFace = ({ student }: { student: Student }) => (
+    <div className="w-[360px] h-[580px] bg-white rounded-[3rem] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.2)] overflow-hidden relative border-2 border-indigo-50 flex flex-col shrink-0 mb-10 break-inside-avoid">
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+          <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs><pattern id="id-grid-master" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke={settings.themeColor} strokeWidth="0.5"/></pattern></defs>
+            <rect width="100%" height="100%" fill="url(#id-grid-master)" />
+          </svg>
+      </div>
+
+      <div className="h-44 p-6 flex flex-col items-center justify-center relative overflow-hidden transition-colors duration-500" style={{ backgroundColor: settings.themeColor }}>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+        <div className="relative z-10 transition-all cursor-pointer hover:ring-2 ring-indigo-400 rounded-lg p-1" style={getTransform('logo')} onClick={() => isEditMode && setSelectedElement('logo')}>
+            {settings.customLogo ? <img src={settings.customLogo} className="w-14 h-14 object-contain" alt="Logo" /> : <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-indigo-950 text-2xl shadow-xl"><i className="fa-solid fa-graduation-cap"></i></div>}
+        </div>
+        <div className="text-center relative z-10 mt-3 space-y-1">
+            <h2 className="text-white font-black uppercase tracking-tighter cursor-pointer hover:bg-white/10 px-2 rounded" style={getTransform('schoolName')} onClick={() => isEditMode && setSelectedElement('schoolName')}>{settings.schoolName}</h2>
+            <p className="text-amber-400 font-black uppercase tracking-[0.4em] cursor-pointer hover:bg-white/10 px-2 rounded" style={getTransform('tagline')} onClick={() => isEditMode && setSelectedElement('tagline')}>{settings.tagline}</p>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center px-8 pt-4 pb-6 relative z-10">
+        <div className="relative -mt-20 mb-6 cursor-pointer hover:ring-2 ring-indigo-400 rounded-[2.5rem] p-1" style={getTransform('photo')} onClick={() => isEditMode && setSelectedElement('photo')}>
+            <div className="w-36 h-36 rounded-[2.5rem] bg-white p-2 shadow-2xl relative z-10">
+              <div className="w-full h-full rounded-[1.8rem] bg-gray-50 overflow-hidden border-2 border-indigo-50 flex items-center justify-center">
+                  {student.photo ? <img src={student.photo} alt={student.name} className="w-full h-full object-cover" /> : <i className="fa-solid fa-user-astronaut text-6xl text-indigo-100"></i>}
+              </div>
+            </div>
+        </div>
+        <h3 className="font-black text-indigo-950 text-center leading-tight mb-2 uppercase tracking-tighter cursor-pointer hover:bg-indigo-50 rounded px-2" style={getTransform('studentName')} onClick={() => isEditMode && setSelectedElement('studentName')}>{student.name}</h3>
+        <div className="flex flex-col items-center cursor-pointer hover:bg-indigo-50 rounded px-2 mb-6" style={getTransform('metaData')} onClick={() => isEditMode && setSelectedElement('metaData')}>
+            <div className="px-5 py-1.5 rounded-full border-2" style={{ borderColor: settings.themeColor + '20', backgroundColor: settings.themeColor + '05' }}>
+              <span className="font-black uppercase tracking-widest" style={{ color: settings.themeColor }}>Class {student.grade} • Roll {student.rollNo}</span>
+            </div>
+        </div>
+        <div className="w-full space-y-4 pt-4 border-t border-indigo-50">
+            <LabelValue label="Parent/Guardian" value={student.parentName || 'Not Recorded'} elKey="parentName" />
+            <LabelValue label="Emergency Contact" value={`+91 ${student.phone}`} elKey="phone" />
+            <div className={`flex flex-col gap-0.5 cursor-pointer hover:bg-indigo-50 rounded px-1 transition-all ${selectedElement === 'address' ? 'ring-2 ring-indigo-400 bg-indigo-50' : ''}`} style={getTransform('address')} onClick={() => isEditMode && setSelectedElement('address')}>
+              <span className="text-[7px] font-black text-gray-400 uppercase tracking-widest leading-none">Residential Address</span>
+              <span className="font-bold text-gray-600 uppercase text-[9px] leading-tight line-clamp-2">{student.address || 'Address verification pending.'}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <LabelValue label="Date of Birth" value={student.dob} elKey="dobInfo" />
+              <LabelValue label="Admission No" value={student.admissionNo} elKey="admissionInfo" />
+            </div>
+        </div>
+      </div>
+
+      <div className="h-28 bg-gray-50 border-t border-gray-100 flex items-center justify-between px-8 relative" style={getTransform('footer')} onClick={() => isEditMode && setSelectedElement('footer')}>
+          <div className="flex items-center gap-4 cursor-pointer hover:bg-white rounded p-1" style={getTransform('qrCode')} onClick={() => isEditMode && setSelectedElement('qrCode')}>
+            <div className="w-14 h-14 bg-white border border-gray-200 rounded-xl p-1.5 shadow-sm">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${student.id}`} className="w-full h-full grayscale" alt="QR" />
+            </div>
+          </div>
+          <div className="text-right flex flex-col items-end cursor-pointer hover:bg-white rounded p-1" style={getTransform('signature')} onClick={() => isEditMode && setSelectedElement('signature')}>
+            {settings.signature ? <img src={settings.signature} className="h-12 mix-blend-multiply" alt="Seal" /> : <div className="h-1 w-24 bg-gray-200 mb-1"></div>}
+            <p className="text-[8px] font-black text-indigo-900 uppercase tracking-widest">Principal Authorization</p>
+          </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-8 animate-fade-in pb-24">
       <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 bg-indigo-950 p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden text-white">
@@ -196,7 +273,7 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
            </div>
            <div>
              <h1 className="text-4xl font-black tracking-tighter uppercase leading-none">Identity Studio</h1>
-             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.6em] mt-3 italic opacity-80">Full-Detail Credential Engine v3.0</p>
+             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.6em] mt-3 italic opacity-80">Full-Detail Credential Engine v4.0</p>
            </div>
         </div>
 
@@ -210,14 +287,14 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
               {isEditMode ? 'Save Layout' : 'Design Mode'}
             </button>
           )}
-          {student && (
+          {displayStudents.length > 0 && (
             <button 
               disabled={isDownloading}
               onClick={handleDownloadPDF}
               className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.8rem] font-black shadow-xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 disabled:opacity-50"
             >
               <i className={`fa-solid ${isDownloading ? 'fa-spinner fa-spin' : 'fa-file-pdf'} text-xl`}></i>
-              {isDownloading ? 'Processing...' : 'Export ID'}
+              {isDownloading ? 'Generating Batch...' : displayStudents.length > 1 ? `Export ${displayStudents.length} IDs` : 'Export ID'}
             </button>
           )}
         </div>
@@ -227,16 +304,35 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
         
         {/* DESIGN CONTROLS SIDEBAR */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-indigo-50">
-            <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-6">Identity Registry</h3>
-            <select 
-              className="w-full px-6 py-4 rounded-2xl bg-indigo-50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-bold text-indigo-900 shadow-inner appearance-none transition-all"
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-            >
-              <option value="">Select a Student...</option>
-              {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.admissionNo})</option>)}
-            </select>
+          <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-indigo-50 space-y-6">
+            <div>
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Select by Grade</h3>
+              <select 
+                className="w-full px-6 py-4 rounded-2xl bg-indigo-50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-bold text-indigo-900 shadow-inner appearance-none transition-all"
+                value={selectedGrade}
+                onChange={(e) => { setSelectedGrade(e.target.value); setSelectedId(''); }}
+              >
+                <option value="">Bulk Mode: Choose Class...</option>
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n.toString()}>Grade {n} Heroes</option>)}
+              </select>
+            </div>
+
+            <div className="relative py-2">
+               <div className="absolute inset-x-0 top-1/2 h-px bg-gray-100"></div>
+               <span className="relative bg-white px-4 text-[8px] font-black text-gray-300 uppercase tracking-[0.5em] left-1/2 -translate-x-1/2">OR</span>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Select Individually</h3>
+              <select 
+                className="w-full px-6 py-4 rounded-2xl bg-indigo-50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-bold text-indigo-900 shadow-inner appearance-none transition-all"
+                value={selectedId}
+                onChange={(e) => { setSelectedId(e.target.value); setSelectedGrade(''); }}
+              >
+                <option value="">Single Mode: Choose Student...</option>
+                {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.admissionNo})</option>)}
+              </select>
+            </div>
           </div>
 
           {isEditMode && isAdmin && (
@@ -304,101 +400,18 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
           )}
         </div>
 
-        {/* FRONT-ONLY MASTER PREVIEW */}
-        <div className="lg:col-span-8 flex flex-col items-center justify-center py-12 bg-gray-100/50 rounded-[4.5rem] border-4 border-dashed border-gray-200 relative overflow-hidden">
-          {student ? (
-            <div id="id-card-printable-container" className="flex flex-col items-center gap-12 p-10 bg-transparent animate-slide-up">
-              <div id="id-card-printable" className="print:m-0 print:p-0">
-                
-                {/* ONE SIDE MASTER CARD */}
-                <div className="w-[360px] h-[580px] bg-white rounded-[3rem] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.2)] overflow-hidden relative border-2 border-indigo-50 flex flex-col shrink-0">
-                  
-                  <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
-                     <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                        <defs><pattern id="id-grid-master" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke={settings.themeColor} strokeWidth="0.5"/></pattern></defs>
-                        <rect width="100%" height="100%" fill="url(#id-grid-master)" />
-                     </svg>
-                  </div>
-
-                  {/* Header Area */}
-                  <div className="h-44 p-6 flex flex-col items-center justify-center relative overflow-hidden transition-colors duration-500" style={{ backgroundColor: settings.themeColor }}>
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-                    
-                    <div className="relative z-10 transition-all cursor-pointer hover:ring-2 ring-indigo-400 rounded-lg p-1" style={getTransform('logo')} onClick={() => isEditMode && setSelectedElement('logo')}>
-                        {settings.customLogo ? (
-                          <img src={settings.customLogo} className="w-14 h-14 object-contain" alt="Logo" />
-                        ) : (
-                          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-indigo-950 text-2xl shadow-xl"><i className="fa-solid fa-graduation-cap"></i></div>
-                        )}
-                    </div>
-
-                    <div className="text-center relative z-10 mt-3 space-y-1">
-                        <h2 className="text-white font-black uppercase tracking-tighter cursor-pointer hover:bg-white/10 px-2 rounded" style={getTransform('schoolName')} onClick={() => isEditMode && setSelectedElement('schoolName')}>{settings.schoolName}</h2>
-                        <p className="text-amber-400 font-black uppercase tracking-[0.4em] cursor-pointer hover:bg-white/10 px-2 rounded" style={getTransform('tagline')} onClick={() => isEditMode && setSelectedElement('tagline')}>{settings.tagline}</p>
-                    </div>
-                  </div>
-
-                  {/* Identity Body */}
-                  <div className="flex-1 flex flex-col items-center px-8 pt-4 pb-6 relative z-10">
-                    <div className="relative -mt-20 mb-6 cursor-pointer hover:ring-2 ring-indigo-400 rounded-[2.5rem] p-1" style={getTransform('photo')} onClick={() => isEditMode && setSelectedElement('photo')}>
-                       <div className="w-36 h-36 rounded-[2.5rem] bg-white p-2 shadow-2xl relative z-10">
-                          <div className="w-full h-full rounded-[1.8rem] bg-gray-50 overflow-hidden border-2 border-indigo-50 flex items-center justify-center">
-                             {student.photo ? (
-                               <img src={student.photo} alt={student.name} className="w-full h-full object-cover" />
-                             ) : (
-                               <i className="fa-solid fa-user-astronaut text-6xl text-indigo-100"></i>
-                             )}
-                          </div>
-                       </div>
-                    </div>
-
-                    <h3 className="font-black text-indigo-950 text-center leading-tight mb-2 uppercase tracking-tighter cursor-pointer hover:bg-indigo-50 rounded px-2" style={getTransform('studentName')} onClick={() => isEditMode && setSelectedElement('studentName')}>{student.name}</h3>
-                    
-                    <div className="flex flex-col items-center cursor-pointer hover:bg-indigo-50 rounded px-2 mb-6" style={getTransform('metaData')} onClick={() => isEditMode && setSelectedElement('metaData')}>
-                       <div className="px-5 py-1.5 rounded-full border-2" style={{ borderColor: settings.themeColor + '20', backgroundColor: settings.themeColor + '05' }}>
-                          <span className="font-black uppercase tracking-widest" style={{ color: settings.themeColor }}>Class {student.grade} • Roll {student.rollNo}</span>
-                       </div>
-                    </div>
-
-                    {/* NEW: Extended Details on Front */}
-                    <div className="w-full space-y-4 pt-4 border-t border-indigo-50">
-                       <LabelValue label="Parent/Guardian" value={student.parentName || 'Not Recorded'} elKey="parentName" />
-                       <LabelValue label="Emergency Contact" value={`+91 ${student.phone}`} elKey="phone" />
-                       
-                       <div 
-                         className={`flex flex-col gap-0.5 cursor-pointer hover:bg-indigo-50 rounded px-1 transition-all ${selectedElement === 'address' ? 'ring-2 ring-indigo-400 bg-indigo-50' : ''}`}
-                         style={getTransform('address')}
-                         onClick={() => isEditMode && setSelectedElement('address')}
-                       >
-                         <span className="text-[7px] font-black text-gray-400 uppercase tracking-widest leading-none">Residential Address</span>
-                         <span className="font-bold text-gray-600 uppercase text-[9px] leading-tight line-clamp-2">{student.address || 'Address verification pending.'}</span>
-                       </div>
-
-                       <div className="grid grid-cols-2 gap-4">
-                          <LabelValue label="Date of Birth" value={student.dob} elKey="dobInfo" />
-                          <LabelValue label="Admission No" value={student.admissionNo} elKey="admissionInfo" />
-                       </div>
-                    </div>
-                  </div>
-
-                  {/* Footer Area */}
-                  <div className="h-28 bg-gray-50 border-t border-gray-100 flex items-center justify-between px-8 relative" style={getTransform('footer')} onClick={() => isEditMode && setSelectedElement('footer')}>
-                      <div className="flex items-center gap-4 cursor-pointer hover:bg-white rounded p-1" style={getTransform('qrCode')} onClick={() => isEditMode && setSelectedElement('qrCode')}>
-                         <div className="w-14 h-14 bg-white border border-gray-200 rounded-xl p-1.5 shadow-sm">
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${student.id}`} className="w-full h-full grayscale" alt="QR" />
-                         </div>
-                      </div>
-                      <div className="text-right flex flex-col items-end cursor-pointer hover:bg-white rounded p-1" style={getTransform('signature')} onClick={() => isEditMode && setSelectedElement('signature')}>
-                         {settings.signature ? (
-                           <img src={settings.signature} className="h-12 mix-blend-multiply" alt="Seal" />
-                         ) : (
-                           <div className="h-1 w-24 bg-gray-200 mb-1"></div>
-                         )}
-                         <p className="text-[8px] font-black text-indigo-900 uppercase tracking-widest">Principal Authorization</p>
-                      </div>
-                  </div>
-                </div>
-
+        {/* MASTER PREVIEW AREA (BULK SUPPORT) */}
+        <div className="lg:col-span-8 flex flex-col items-center py-12 bg-gray-100/50 rounded-[4.5rem] border-4 border-dashed border-gray-200 relative overflow-hidden min-h-[800px]">
+          {displayStudents.length > 0 ? (
+            <div id="id-card-printable-container" className="flex flex-col items-center p-10 bg-transparent animate-slide-up w-full max-h-[80vh] overflow-y-auto custom-scrollbar">
+              <div id="id-card-printable" className="flex flex-col items-center w-full">
+                {displayStudents.map((s, idx) => (
+                   <React.Fragment key={s.id}>
+                      <CardFace student={s} />
+                      {/* PDF Page Break for bulk export */}
+                      {idx < displayStudents.length - 1 && <div className="html2pdf__page-break"></div>}
+                   </React.Fragment>
+                ))}
               </div>
             </div>
           ) : (
@@ -407,7 +420,7 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
                 <i className="fa-solid fa-passport"></i>
               </div>
               <p className="text-4xl font-black text-indigo-900 tracking-tighter uppercase">ID Designer</p>
-              <p className="font-bold text-indigo-400 mt-3 italic max-w-sm mx-auto">Select a student from the registry to begin the single-side high-fidelity design.</p>
+              <p className="font-bold text-indigo-400 mt-3 italic max-w-sm mx-auto">Choose a Class or Student to begin the high-fidelity identity pipeline.</p>
             </div>
           )}
         </div>
@@ -423,7 +436,8 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
         @media print {
           body * { visibility: hidden; }
           #id-card-printable, #id-card-printable * { visibility: visible; }
-          #id-card-printable { position: absolute; left: 0; top: 0; width: 100%; display: flex; justify-content: center; }
+          #id-card-printable { position: absolute; left: 0; top: 0; width: 100%; display: flex; flex-direction: column; align-items: center; }
+          .html2pdf__page-break { display: block; page-break-before: always; }
           @page { size: portrait; margin: 0; }
         }
       `}</style>
