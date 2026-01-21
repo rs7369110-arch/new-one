@@ -21,7 +21,8 @@ const DB_KEYS = {
   LAST_VIEWED: 'edu_last_viewed_stamps',
   LANGUAGE: 'edu_app_language',
   FEE_TRANSACTIONS: 'edu_fee_transactions',
-  SCHOOL_BRANDING: 'edu_school_branding'
+  SCHOOL_BRANDING: 'edu_school_branding',
+  ACCESS_PERMISSIONS: 'edu_access_permissions'
 };
 
 export const storage = {

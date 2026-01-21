@@ -16,6 +16,10 @@ export enum PaymentMode {
   OFFLINE = 'OFFLINE'
 }
 
+export interface AccessPermissions {
+  [role: string]: string[]; // Role -> Array of menu item IDs they can access
+}
+
 export interface SchoolBranding {
   id: string;
   name: string;

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { UserRole, Language, SchoolBranding, DEFAULT_BRANDING } from '../types';
+import { UserRole, Language, SchoolBranding, DEFAULT_BRANDING, AccessPermissions } from '../types';
 import Logo from './Logo';
 import { storage, DB_KEYS } from '../db';
 
@@ -24,9 +24,10 @@ interface SidebarProps {
   onClose: () => void;
   branding: SchoolBranding;
   onUpdateBranding: (brand: SchoolBranding) => void;
+  permissions: AccessPermissions;
 }
 
-interface MenuItem {
+export interface MenuItem {
   id: string;
   labels: Record<Language, string>;
   icon: string;
@@ -36,7 +37,7 @@ interface MenuItem {
   lightIconColor: string;
 }
 
-const DEFAULT_MENU_ITEMS: MenuItem[] = [
+export const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'dashboard', labels: { [Language.EN]: 'Dashboard', [Language.GU]: 'ડેશબોર્ડ' }, icon: 'fa-house-chimney', color: 'hover:text-amber-400', active: 'from-amber-500/20 to-transparent border-amber-500', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], lightIconColor: 'text-red-500' },
   { id: 'attendance', labels: { [Language.EN]: 'Attendance', [Language.GU]: 'હાજરી' }, icon: 'fa-calendar-check', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], color: 'hover:text-orange-400', active: 'from-orange-500/20 to-transparent border-orange-500', lightIconColor: 'text-orange-500' },
   { id: 'students', labels: { [Language.EN]: 'Student Entry', [Language.GU]: 'વિદ્યાર્થી એન્ટ્રી' }, icon: 'fa-user-plus', color: 'hover:text-emerald-400', active: 'from-emerald-500/20 to-transparent border-emerald-500', roles: [UserRole.ADMIN, UserRole.TEACHER], lightIconColor: 'text-yellow-500' },
@@ -58,10 +59,11 @@ const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'certs', labels: { [Language.EN]: 'Certificates', [Language.GU]: 'પ્રમાણપત્રો' }, icon: 'fa-certificate', color: 'hover:text-amber-400', active: 'from-amber-500/20 to-transparent border-amber-500', roles: [UserRole.ADMIN, UserRole.TEACHER], lightIconColor: 'text-orange-600' },
   { id: 'icards', labels: { [Language.EN]: 'ID Cards', [Language.GU]: 'ઓળખ કાર્ડ' }, icon: 'fa-id-card-clip', roles: [UserRole.ADMIN], color: 'hover:text-indigo-400', active: 'from-indigo-500/20 to-transparent border-indigo-500', lightIconColor: 'text-indigo-600' },
   { id: 'student-reports', labels: { [Language.EN]: 'Reports', [Language.GU]: 'રિપોર્ટ્સ' }, icon: 'fa-chart-line', color: 'hover:text-cyan-400', active: 'from-cyan-500/20 to-transparent border-cyan-500', roles: [UserRole.ADMIN], lightIconColor: 'text-cyan-600' },
-  { id: 'activity', labels: { [Language.EN]: 'Admin Log', [Language.GU]: 'એડમિન લોગ' }, icon: 'fa-shield-halved', color: 'hover:text-slate-400', active: 'from-slate-500/20 to-transparent border-slate-500', roles: [UserRole.ADMIN], lightIconColor: 'text-slate-600' },
+  { id: 'access-control', labels: { [Language.EN]: 'Access Hub', [Language.GU]: 'એક્સેસ હબ' }, icon: 'fa-shield-halved', roles: [UserRole.ADMIN], color: 'hover:text-slate-400', active: 'from-slate-500/20 to-transparent border-slate-500', lightIconColor: 'text-slate-600' },
+  { id: 'activity', labels: { [Language.EN]: 'Admin Log', [Language.GU]: 'એડમિન લોગ' }, icon: 'fa-clock-rotate-left', roles: [UserRole.ADMIN], color: 'hover:text-slate-400', active: 'from-slate-500/20 to-transparent border-slate-500', lightIconColor: 'text-slate-600' },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout, userName, isDarkMode, toggleTheme, unreadCounts, currentLang, toggleLanguage, isOpen, onClose, branding, onUpdateBranding }) => {
+const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout, userName, isDarkMode, toggleTheme, unreadCounts, currentLang, toggleLanguage, isOpen, onClose, branding, onUpdateBranding, permissions }) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>(DEFAULT_MENU_ITEMS);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -137,7 +139,17 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
     return 0;
   };
 
-  const filteredMenuItems = menuItems.filter(item => item.roles.includes(role));
+  const filteredMenuItems = menuItems.filter(item => {
+    // Admin always sees everything they are roles for
+    if (role === UserRole.ADMIN) return item.roles.includes(UserRole.ADMIN);
+    
+    // Dashboard is always visible
+    if (item.id === 'dashboard') return true;
+
+    // Check dynamic permissions for other roles
+    const rolePermissions = permissions[role] || [];
+    return rolePermissions.includes(item.id);
+  });
 
   return (
     <>

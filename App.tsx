@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language, FeeTransaction, SchoolBranding, DEFAULT_BRANDING } from './types';
+import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language, FeeTransaction, SchoolBranding, DEFAULT_BRANDING, AccessPermissions } from './types';
 import { storage, DB_KEYS } from './db';
 import { dbService } from './services/supabase';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import Sidebar from './components/Sidebar';
+import Sidebar, { DEFAULT_MENU_ITEMS } from './components/Sidebar';
 import StudentManagement from './components/StudentManagement';
 import CancelledStudents from './components/CancelledStudents';
 import Attendance from './components/Attendance';
@@ -26,6 +26,7 @@ import StudentReports from './components/StudentReports';
 import ExamEntry from './components/ExamEntry';
 import FeeReports from './components/FeeReports';
 import CustomProfileBuilder from './components/CustomProfileBuilder';
+import AccessControl from './components/AccessControl';
 
 const DEFAULT_FOOD_CHART: FoodItem[] = [
   { day: 'Monday', breakfast: 'Milk & Poha', breakfastPrice: 20, lunch: 'Dal Fry & Rice', lunchPrice: 40 },
@@ -37,6 +38,12 @@ const DEFAULT_FOOD_CHART: FoodItem[] = [
 ];
 
 const DEFAULT_SUBJECTS = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Science', 'Computer'];
+
+const DEFAULT_PERMISSIONS: AccessPermissions = {
+  [UserRole.TEACHER]: ['attendance', 'students', 'homework', 'exam-entry', 'marksheet', 'leaves', 'messages', 'gallery', 'curriculum', 'food', 'certs'],
+  [UserRole.STUDENT]: ['attendance', 'fees', 'notices', 'homework', 'marksheet', 'messages', 'gallery', 'curriculum', 'food'],
+  [UserRole.PARENT]: ['attendance', 'fees', 'notices', 'homework', 'marksheet', 'messages', 'gallery', 'curriculum', 'food']
+};
 
 interface Notification {
   id: string;
@@ -54,6 +61,7 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   
   const [schoolBranding, setSchoolBranding] = useState<SchoolBranding>(storage.get(DB_KEYS.SCHOOL_BRANDING, DEFAULT_BRANDING));
+  const [permissions, setPermissions] = useState<AccessPermissions>(storage.get(DB_KEYS.ACCESS_PERMISSIONS, DEFAULT_PERMISSIONS));
   const [students, setStudents] = useState<Student[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [homeworks, setHomeworks] = useState<Homework[]>([]);
@@ -127,12 +135,13 @@ const App: React.FC = () => {
     setCustomTemplates(storage.get(DB_KEYS.CUSTOM_TEMPLATES, []));
     setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
     setSchoolBranding(storage.get(DB_KEYS.SCHOOL_BRANDING, DEFAULT_BRANDING));
+    setPermissions(storage.get(DB_KEYS.ACCESS_PERMISSIONS, DEFAULT_PERMISSIONS));
 
     const syncAll = async () => {
       try {
         setIsSyncing(true);
         const [
-          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, actData, brandData
+          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, actData, brandData, permData
         ] = await Promise.all([
           dbService.fetchAll('students'),
           dbService.fetchAll('notices'),
@@ -150,7 +159,8 @@ const App: React.FC = () => {
           dbService.fetchAll('custom_templates'),
           dbService.fetchAll('subject_list'),
           dbService.fetchAll('activities'),
-          dbService.fetchAll('school_branding')
+          dbService.fetchAll('school_branding'),
+          dbService.fetchAll('access_permissions')
         ]);
 
         if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
@@ -170,6 +180,7 @@ const App: React.FC = () => {
         if (subData.length) { setAvailableSubjects(subData); storage.set(DB_KEYS.SUBJECT_LIST, subData); }
         if (actData.length) { setActivities(actData); storage.set(DB_KEYS.ACTIVITY_LOG, actData); }
         if (brandData) { setSchoolBranding(brandData as any); storage.set(DB_KEYS.SCHOOL_BRANDING, brandData); }
+        if (permData) { setPermissions(permData as any); storage.set(DB_KEYS.ACCESS_PERMISSIONS, permData); }
         
         setIsSyncing(false);
       } catch (err) {
@@ -232,6 +243,7 @@ const App: React.FC = () => {
   const updateCustomTemplates = createSyncUpdate(DB_KEYS.CUSTOM_TEMPLATES, 'custom_templates', setCustomTemplates);
   const updateActivities = createSyncUpdate(DB_KEYS.ACTIVITY_LOG, 'activities', setActivities);
   const updateSchoolBranding = createSyncUpdate(DB_KEYS.SCHOOL_BRANDING, 'school_branding', setSchoolBranding);
+  const updatePermissions = createSyncUpdate(DB_KEYS.ACCESS_PERMISSIONS, 'access_permissions', setPermissions);
 
   // Specific Deletion Handlers for Database Sync
   const deleteHomework = createSyncDelete(DB_KEYS.HOMEWORK, 'homework', setHomeworks);
@@ -244,7 +256,8 @@ const App: React.FC = () => {
     const activeStudents = students.filter(s => s.status !== 'CANCELLED');
 
     switch (activeTab) {
-      case 'dashboard': return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} />;
+      case 'dashboard': return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} />;
+      case 'access-control': return <AccessControl permissions={permissions} onUpdatePermissions={updatePermissions} menuItems={DEFAULT_MENU_ITEMS} />;
       case 'fee-reports': return <FeeReports students={activeStudents} transactions={feeTransactions} />;
       case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={activeStudents} />;
       case 'leaves': return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} onLogActivity={addActivity} />;
@@ -266,7 +279,7 @@ const App: React.FC = () => {
       case 'fees': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} onLogActivity={addActivity} />;
       case 'fees-setup': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" onLogActivity={addActivity} />;
       case 'icards': return <ICardGenerator students={activeStudents} user={currentUser} branding={schoolBranding} />;
-      default: return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} />;
+      default: return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} />;
     }
   };
 
@@ -318,6 +331,7 @@ const App: React.FC = () => {
         onClose={() => setIsSidebarOpen(false)}
         branding={schoolBranding}
         onUpdateBranding={updateSchoolBranding}
+        permissions={permissions}
       />
       
       <main className="flex-1 overflow-y-auto mobile-scroll p-4 md:p-12 relative z-10 custom-scrollbar">

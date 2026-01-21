@@ -39,7 +39,8 @@ const translations = {
     attendance: "ATTENDANCE",
     analyticsLive: "Analytics Live",
     registryClean: "Registry Clean",
-    myChild: "My Child"
+    myChild: "My Child",
+    accessControl: "Access Tower"
   },
   [Language.GU]: {
     commandCenter: "કમાન્ડ સેન્ટર",
@@ -58,7 +59,8 @@ const translations = {
     attendance: "હાજરી",
     analyticsLive: "લાઇવ વિશ્લેષણ",
     registryClean: "રજિસ્ટ્રી ખાલી છે",
-    myChild: "મારું બાળક"
+    myChild: "મારું બાળક",
+    accessControl: "એક્સેસ ટાવર"
   }
 };
 
@@ -206,12 +208,20 @@ const Dashboard: React.FC<DashboardProps> = ({
            </div>
            
            {isAdmin && (
-             <button 
-               onClick={() => { setBrandForm(safeBranding); setIsBrandingOpen(true); }}
-               className="mt-6 md:mt-0 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 active:scale-95 shadow-xl"
-             >
-               <i className="fa-solid fa-pen-nib"></i> Edit Branding
-             </button>
+             <div className="flex flex-wrap gap-3 mt-6 md:mt-0">
+               <button 
+                 onClick={() => setActiveTab?.('access-control')}
+                 className="px-6 py-3 bg-slate-900 hover:bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 active:scale-95 shadow-xl border border-white/10"
+               >
+                 <i className="fa-solid fa-shield-halved text-emerald-400"></i> {t.accessControl}
+               </button>
+               <button 
+                 onClick={() => { setBrandForm(safeBranding); setIsBrandingOpen(true); }}
+                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 active:scale-95 shadow-xl"
+               >
+                 <i className="fa-solid fa-pen-nib"></i> Edit Branding
+               </button>
+             </div>
            )}
            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/5 to-transparent pointer-events-none"></div>
         </div>
