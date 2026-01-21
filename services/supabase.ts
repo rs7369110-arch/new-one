@@ -56,6 +56,11 @@ export const dbService = {
         const branding = data?.find(item => item.id === 'active_brand');
         return branding ? toCamelCase(branding) : null;
       }
+
+      if (table === 'access_permissions') {
+        const perms = data?.find(item => item.id === '1' || item.id === 1);
+        return perms ? perms.data : null;
+      }
       
       return (data || []).map(item => toCamelCase(item));
     } catch (err: any) {
@@ -96,10 +101,20 @@ export const dbService = {
         ];
       }
 
+      if (table === 'subjects') {
+        allowedColumns = ['id', 'name', 'code', 'type', 'color', 'icon'];
+      }
+
+      if (table === 'timetable') {
+        allowedColumns = ['id', 'grade', 'section', 'day', 'period', 'subject_id', 'teacher_id', 'start_time', 'end_time'];
+      }
+
       if (table === 'subject_list') {
         dataToPush = { id: 'current_subjects', list: payload };
       } else if (table === 'school_branding') {
         dataToPush = { ...toSnakeCase(payload, allowedColumns), id: 'active_brand' };
+      } else if (table === 'access_permissions') {
+        dataToPush = { id: 1, data: payload };
       } else if (Array.isArray(payload)) {
         dataToPush = payload.map(item => {
           const cleaned = { ...item };
@@ -117,6 +132,7 @@ export const dbService = {
       if (table === 'fee_structures') onConflict = 'grade';
       if (table === 'attendance') onConflict = 'date,student_id';
       if (table === 'school_branding') onConflict = 'id';
+      if (table === 'access_permissions') onConflict = 'id';
 
       const { error } = await supabase.from(table).upsert(dataToPush, { 
         onConflict,

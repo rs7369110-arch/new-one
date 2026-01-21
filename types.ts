@@ -17,7 +17,7 @@ export enum PaymentMode {
 }
 
 export interface AccessPermissions {
-  [role: string]: string[]; // Role -> Array of menu item IDs they can access
+  [role: string]: string[];
 }
 
 export interface SchoolBranding {
@@ -41,6 +41,27 @@ export const DEFAULT_BRANDING: SchoolBranding = {
   logo: null,
   themeColor: '#4f46e5'
 };
+
+export interface Subject {
+  id: string;
+  name: string;
+  code: string;
+  type: 'THEORY' | 'PRACTICAL' | 'SKILL';
+  color: string; // Added for visual timetable
+  icon: string;  // Added for visual identity
+}
+
+export interface TimetableEntry {
+  id: string;
+  grade: string;
+  section: string;
+  day: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
+  period: number;
+  subjectId: string;
+  teacherId: string;
+  startTime: string;
+  endTime: string;
+}
 
 export interface FeeTransaction {
   id: string;
@@ -159,7 +180,7 @@ export interface TeacherAssignment {
   email: string;
   address: string;
   permanentAddress?: string;
-  designation: string; // PRT, TGT, PGT, Principal
+  designation: string; 
   subject: string;
   joiningDate: string;
   employmentType: 'PERMANENT' | 'CONTRACT' | 'GUEST';
@@ -267,7 +288,7 @@ export interface Homework {
   dueDate: string;
   grade: string;
   attachment?: {
-    data: string; // base64
+    data: string; 
     name: string;
     type: 'IMAGE' | 'PDF';
   };
@@ -278,4 +299,50 @@ export interface FeeStructure {
   tuitionFee: number;
   transportFee: number;
   examFee: number;
+}
+
+export interface ExamSubjectConfig {
+  subjectName: string;
+  maxMarks: number;
+  passingMarks: number;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface Exam {
+  id: string;
+  name: string;
+  financialYear: string;
+  term?: 'UNIT_TEST' | 'MID_TERM' | 'FINAL' | 'CUSTOM';
+  examType?: 'ONLINE' | 'OFFLINE';
+  targetGrades?: string[];
+  targetSections?: string[];
+  subjects?: ExamSubjectConfig[];
+  marksEntryStart?: string;
+  marksEntryEnd?: string;
+  marksEntryDeadline?: string; 
+  isAdminLocked?: boolean;      
+  status: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED' | 'OPEN' | 'LOCKED';
+  gradingSystem?: 'MARKS' | 'GRADE' | 'COMBINED';
+  gradeSlabs?: { grade: string; minPercentage: number }[];
+  createdAt?: string;
+  createdById?: string;
+  date?: string;
+  maxMarks?: number;
+  grade?: string;
+  section?: string;
+  subject?: string;
+}
+
+export interface ExamMark {
+  id: string;
+  examId: string;
+  studentId: string;
+  subjectName: string;
+  marks: number | 'AB' | 'NE';
+  teacherId: string;
+  submittedAt: string;
+  lastModified?: string;
+  isFinal: boolean;
 }

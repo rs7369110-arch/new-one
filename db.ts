@@ -22,7 +22,9 @@ const DB_KEYS = {
   LANGUAGE: 'edu_app_language',
   FEE_TRANSACTIONS: 'edu_fee_transactions',
   SCHOOL_BRANDING: 'edu_school_branding',
-  ACCESS_PERMISSIONS: 'edu_access_permissions'
+  ACCESS_PERMISSIONS: 'edu_access_permissions',
+  SUBJECTS: 'edu_master_subjects',
+  TIMETABLE: 'edu_master_timetable'
 };
 
 export const storage = {

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language, FeeTransaction, SchoolBranding, DEFAULT_BRANDING, AccessPermissions } from './types';
+import { UserRole, User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, FoodItem, MarksRecord, CurriculumItem, SchoolMessage, GalleryItem, AdminActivity, LeaveRequest, FeeStructure, CustomProfileTemplate, Language, FeeTransaction, SchoolBranding, DEFAULT_BRANDING, AccessPermissions, Subject, TimetableEntry } from './types';
 import { storage, DB_KEYS } from './db';
 import { dbService } from './services/supabase';
 import Login from './components/Login';
@@ -27,6 +27,7 @@ import ExamEntry from './components/ExamEntry';
 import FeeReports from './components/FeeReports';
 import CustomProfileBuilder from './components/CustomProfileBuilder';
 import AccessControl from './components/AccessControl';
+import SchoolSetup from './components/SchoolSetup';
 
 const DEFAULT_FOOD_CHART: FoodItem[] = [
   { day: 'Monday', breakfast: 'Milk & Poha', breakfastPrice: 20, lunch: 'Dal Fry & Rice', lunchPrice: 40 },
@@ -78,6 +79,8 @@ const App: React.FC = () => {
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [customTemplates, setCustomTemplates] = useState<CustomProfileTemplate[]>([]);
   const [feeTransactions, setFeeTransactions] = useState<FeeTransaction[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [lastViewed, setLastViewed] = useState<Record<string, number>>(storage.get(DB_KEYS.LAST_VIEWED, {}));
@@ -91,7 +94,6 @@ const App: React.FC = () => {
     }, 4500);
   }, []);
 
-  // Centralized Activity Logger
   const addActivity = useCallback(async (actionType: AdminActivity['actionType'], module: string, target: string, details?: string) => {
     if (!currentUser) return;
     const newActivity: AdminActivity = {
@@ -113,7 +115,6 @@ const App: React.FC = () => {
     }
   }, [currentUser, activities]);
 
-  // INITIAL LOAD & SYNC
   useEffect(() => {
     const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
     if (savedUser) setCurrentUser(savedUser);
@@ -136,12 +137,14 @@ const App: React.FC = () => {
     setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
     setSchoolBranding(storage.get(DB_KEYS.SCHOOL_BRANDING, DEFAULT_BRANDING));
     setPermissions(storage.get(DB_KEYS.ACCESS_PERMISSIONS, DEFAULT_PERMISSIONS));
+    setSubjects(storage.get(DB_KEYS.SUBJECTS, []));
+    setTimetable(storage.get(DB_KEYS.TIMETABLE, []));
 
     const syncAll = async () => {
       try {
         setIsSyncing(true);
         const [
-          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, actData, brandData, permData
+          sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, actData, brandData, permData, subjData, ttData
         ] = await Promise.all([
           dbService.fetchAll('students'),
           dbService.fetchAll('notices'),
@@ -160,7 +163,9 @@ const App: React.FC = () => {
           dbService.fetchAll('subject_list'),
           dbService.fetchAll('activities'),
           dbService.fetchAll('school_branding'),
-          dbService.fetchAll('access_permissions')
+          dbService.fetchAll('access_permissions'),
+          dbService.fetchAll('subjects'),
+          dbService.fetchAll('timetable')
         ]);
 
         if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
@@ -181,6 +186,8 @@ const App: React.FC = () => {
         if (actData.length) { setActivities(actData); storage.set(DB_KEYS.ACTIVITY_LOG, actData); }
         if (brandData) { setSchoolBranding(brandData as any); storage.set(DB_KEYS.SCHOOL_BRANDING, brandData); }
         if (permData) { setPermissions(permData as any); storage.set(DB_KEYS.ACCESS_PERMISSIONS, permData); }
+        if (subjData.length) { setSubjects(subjData); storage.set(DB_KEYS.SUBJECTS, subjData); }
+        if (ttData.length) { setTimetable(ttData); storage.set(DB_KEYS.TIMETABLE, ttData); }
         
         setIsSyncing(false);
       } catch (err) {
@@ -244,8 +251,9 @@ const App: React.FC = () => {
   const updateActivities = createSyncUpdate(DB_KEYS.ACTIVITY_LOG, 'activities', setActivities);
   const updateSchoolBranding = createSyncUpdate(DB_KEYS.SCHOOL_BRANDING, 'school_branding', setSchoolBranding);
   const updatePermissions = createSyncUpdate(DB_KEYS.ACCESS_PERMISSIONS, 'access_permissions', setPermissions);
+  const updateSubjects = createSyncUpdate(DB_KEYS.SUBJECTS, 'subjects', setSubjects);
+  const updateTimetable = createSyncUpdate(DB_KEYS.TIMETABLE, 'timetable', setTimetable);
 
-  // Specific Deletion Handlers for Database Sync
   const deleteHomework = createSyncDelete(DB_KEYS.HOMEWORK, 'homework', setHomeworks);
   const deleteStudent = createSyncDelete(DB_KEYS.STUDENTS, 'students', setStudents);
   const deleteNotice = createSyncDelete(DB_KEYS.NOTICES, 'notices', setNotices);
@@ -257,6 +265,7 @@ const App: React.FC = () => {
 
     switch (activeTab) {
       case 'dashboard': return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} />;
+      case 'school-setup': return <SchoolSetup subjects={subjects} onUpdateSubjects={updateSubjects} timetable={timetable} onUpdateTimetable={updateTimetable} teachers={teachers} onLogActivity={addActivity} />;
       case 'access-control': return <AccessControl permissions={permissions} onUpdatePermissions={updatePermissions} menuItems={DEFAULT_MENU_ITEMS} />;
       case 'fee-reports': return <FeeReports students={activeStudents} transactions={feeTransactions} />;
       case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={activeStudents} />;

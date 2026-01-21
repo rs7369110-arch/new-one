@@ -43,6 +43,7 @@ export const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'students', labels: { [Language.EN]: 'Student Entry', [Language.GU]: 'વિદ્યાર્થી એન્ટ્રી' }, icon: 'fa-user-plus', color: 'hover:text-emerald-400', active: 'from-emerald-500/20 to-transparent border-emerald-500', roles: [UserRole.ADMIN, UserRole.TEACHER], lightIconColor: 'text-yellow-500' },
   { id: 'cancelled-students', labels: { [Language.EN]: 'Cancelled List', [Language.GU]: 'રદ કરેલ યાદી' }, icon: 'fa-user-slash', color: 'hover:text-rose-400', active: 'from-rose-500/20 to-transparent border-rose-500', roles: [UserRole.ADMIN], lightIconColor: 'text-rose-500' },
   { id: 'teachers', labels: { [Language.EN]: 'Teacher Entry', [Language.GU]: 'શિક્ષક એન્ટ્રી' }, icon: 'fa-chalkboard-user', color: 'hover:text-rose-400', active: 'from-rose-500/20 to-transparent border-rose-500', roles: [UserRole.ADMIN], lightIconColor: 'text-lime-500' },
+  { id: 'school-setup', labels: { [Language.EN]: 'School Setup', [Language.GU]: 'સ્કૂલ સેટઅપ' }, icon: 'fa-building-columns', color: 'hover:text-indigo-400', active: 'from-indigo-500/20 to-transparent border-indigo-500', roles: [UserRole.ADMIN], lightIconColor: 'text-indigo-600' },
   { id: 'fees', labels: { [Language.EN]: 'Fees Pay', [Language.GU]: 'ફી ભરો' }, icon: 'fa-coins', roles: [UserRole.ADMIN, UserRole.PARENT, UserRole.STUDENT], color: 'hover:text-pink-400', active: 'from-pink-500/20 to-transparent border-pink-500', lightIconColor: 'text-emerald-500' },
   { id: 'fee-reports', labels: { [Language.EN]: 'Fee Reports', [Language.GU]: 'ફી રિપોર્ટ' }, icon: 'fa-money-bill-trend-up', roles: [UserRole.ADMIN], color: 'hover:text-emerald-500', active: 'from-emerald-500/20 to-transparent border-emerald-500', lightIconColor: 'text-emerald-600' },
   { id: 'fees-setup', labels: { [Language.EN]: 'Fees Setup', [Language.GU]: 'ફી સેટઅપ' }, icon: 'fa-file-invoice-dollar', roles: [UserRole.ADMIN], color: 'hover:text-blue-400', active: 'from-blue-500/20 to-transparent border-blue-500', lightIconColor: 'text-teal-500' },
@@ -213,7 +214,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-4 transition-all duration-500 group relative overflow-hidden ${
+                className={`w-full flex items-center gap-4 transition-all duration-300 group relative overflow-hidden ${
                   isAttendance 
                     ? 'px-4 py-2 rounded-[1.1rem]' 
                     : 'px-5 py-3 rounded-[1.4rem]'
