@@ -42,7 +42,8 @@ const translations = {
     registryClean: "Registry Clean",
     myChild: "My Child",
     accessControl: "Access Tower",
-    todaysMenu: "Today's Menu"
+    todaysMenu: "Today's Menu",
+    schoolSetup: "School Setup"
   },
   [Language.GU]: {
     commandCenter: "કમાન્ડ સેન્ટર",
@@ -63,7 +64,8 @@ const translations = {
     registryClean: "રજિસ્ટ્રી ખાલી છે",
     myChild: "મારું બાળક",
     accessControl: "એક્સેસ ટાવર",
-    todaysMenu: "આજનું મેનૂ"
+    todaysMenu: "આજનું મેનૂ",
+    schoolSetup: "સ્કૂલ સેટઅપ"
   }
 };
 
@@ -218,6 +220,12 @@ const Dashboard: React.FC<DashboardProps> = ({
            
            {isAdmin && (
              <div className="flex flex-wrap gap-4 mt-8 md:mt-0">
+               <button 
+                 onClick={() => setActiveTab?.('school-setup')}
+                 className="btn-3d-emerald px-8 py-4 bg-teal-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border-teal-900"
+               >
+                 <i className="fa-solid fa-compass-drafting text-amber-300"></i> {t.schoolSetup}
+               </button>
                <button 
                  onClick={() => setActiveTab?.('access-control')}
                  className="btn-3d-slate px-8 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2"
