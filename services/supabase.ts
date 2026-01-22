@@ -47,7 +47,6 @@ export const dbService = {
       const { data, error } = await supabase.from(table).select('*');
       
       if (error) {
-        // Error code 42P01 means table does not exist in Supabase
         if (error.code === '42P01') {
           console.info(`Supabase Sync: Table [${table}] not found on server. Using local registry.`);
           return [];
@@ -72,7 +71,6 @@ export const dbService = {
       
       return (data || []).map(item => toCamelCase(item));
     } catch (err: any) {
-      // Catch-all to prevent app crashes during sync
       return [];
     }
   },
@@ -82,37 +80,17 @@ export const dbService = {
       let dataToPush: any;
       let allowedColumns: string[] | undefined = undefined;
 
+      // Define allowed columns for security and mapping
       if (table === 'students') {
-        allowedColumns = [
-          'id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender',
-          'blood_group', 'aadhar_no', 'photo', 'grade', 'section', 'medium',
-          'father_name', 'mother_name', 'guardian_name', 'father_occupation',
-          'phone', 'alternate_phone', 'email', 'address', 'city', 'state',
-          'pincode', 'permanent_address', 'prev_school_name', 'prev_last_class',
-          'tc_no', 'total_fees', 'paid_fees', 'status', 'academic_year',
-          'admission_date', 'documents', 'parent_name', 'emergency_contact',
-          'emergency_contact_name', 'uid_no', 'pan_no', 'leaving_reason',
-          'medical_conditions', 'allergies'
-        ];
-      }
-
-      if (table === 'teachers') {
-        allowedColumns = [
-          'id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group',
-          'aadhar_no', 'photo', 'phone', 'email', 'address', 'permanent_address',
-          'designation', 'subject', 'joining_date', 'employment_type',
-          'experience', 'qualification', 'professional_degree', 'university',
-          'passing_year', 'assigned_grades', 'assigned_sections', 'is_class_teacher',
-          'salary_type', 'basic_salary', 'bank_name', 'account_no', 'ifsc_code', 'status'
-        ];
-      }
-
-      if (table === 'subjects') {
-        allowedColumns = ['id', 'name', 'code', 'type', 'color', 'icon'];
-      }
-
-      if (table === 'timetable') {
-        allowedColumns = ['id', 'grade', 'section', 'day', 'period', 'subject_id', 'teacher_id', 'start_time', 'end_time'];
+        allowedColumns = ['id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender', 'blood_group', 'aadhar_no', 'photo', 'grade', 'section', 'medium', 'father_name', 'mother_name', 'guardian_name', 'father_occupation', 'phone', 'alternate_phone', 'email', 'address', 'city', 'state', 'pincode', 'permanent_address', 'prev_school_name', 'prev_last_class', 'tc_no', 'total_fees', 'paid_fees', 'status', 'academic_year', 'admission_date', 'parent_name', 'emergency_contact', 'emergency_contact_name'];
+      } else if (table === 'teachers') {
+        allowedColumns = ['id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group', 'aadhar_no', 'photo', 'phone', 'email', 'address', 'permanent_address', 'designation', 'subject', 'joining_date', 'employment_type', 'experience', 'qualification', 'professional_degree', 'university', 'passing_year', 'assigned_grades', 'assigned_sections', 'is_class_teacher', 'salary_type', 'basic_salary', 'bank_name', 'account_no', 'ifsc_code', 'status'];
+      } else if (table === 'homework') {
+        allowedColumns = ['id', 'subject', 'title', 'description', 'due_date', 'grade', 'attachment'];
+      } else if (table === 'gallery') {
+        allowedColumns = ['id', 'type', 'grade', 'title', 'description', 'url', 'date'];
+      } else if (table === 'notices') {
+        allowedColumns = ['id', 'title', 'content', 'date', 'category', 'target_grades', 'is_pinned', 'attachment'];
       }
 
       if (table === 'subject_list') {
@@ -122,37 +100,24 @@ export const dbService = {
       } else if (table === 'access_permissions') {
         dataToPush = { id: 1, data: payload };
       } else if (Array.isArray(payload)) {
-        dataToPush = payload.map(item => {
-          const cleaned = { ...item };
-          if (cleaned.id === undefined || cleaned.id === null || cleaned.id === '') delete cleaned.id;
-          return toSnakeCase(cleaned, allowedColumns);
-        });
+        dataToPush = payload.map(item => toSnakeCase(item, allowedColumns));
       } else {
-        const cleaned = { ...payload };
-        if (cleaned.id === undefined || cleaned.id === null || cleaned.id === '') delete cleaned.id;
-        dataToPush = toSnakeCase(cleaned, allowedColumns);
+        dataToPush = toSnakeCase(payload, allowedColumns);
       }
       
       let onConflict = 'id';
       if (table === 'food_chart') onConflict = 'day';
       if (table === 'fee_structures') onConflict = 'grade';
       if (table === 'attendance') onConflict = 'date,student_id';
-      if (table === 'school_branding') onConflict = 'id';
-      if (table === 'access_permissions') onConflict = 'id';
 
       const { error } = await supabase.from(table).upsert(dataToPush, { 
         onConflict,
         ignoreDuplicates: false 
       });
       
-      if (error) {
-        if (error.code === '42P01') {
-          return; // Silently fail if table doesn't exist yet
-        }
-        throw new Error(`DB Error: ${error.message}`);
-      }
+      if (error && error.code !== '42P01') throw error;
     } catch (err: any) {
-      console.warn(`Supabase Upsert Deferred: ${table}`);
+      console.error(`Supabase Upsert Failure [${table}]:`, err.message);
     }
   },
 
@@ -164,8 +129,9 @@ export const dbService = {
       
       const { error } = await supabase.from(table).delete().eq(pk, id);
       if (error && error.code !== '42P01') throw error;
+      console.log(`Supabase Delete Success [${table}]: ${id}`);
     } catch (err: any) {
-      console.warn(`Supabase Delete Deferred: ${table}`);
+      console.error(`Supabase Delete Failure [${table}]:`, err.message);
     }
   }
 };

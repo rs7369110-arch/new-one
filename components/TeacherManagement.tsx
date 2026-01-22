@@ -5,6 +5,7 @@ import { TeacherAssignment, UserRole } from '../types';
 interface TeacherManagementProps {
   teachers: TeacherAssignment[];
   setTeachers: (teachers: TeacherAssignment[]) => void;
+  onDeleteTeacher?: (id: string) => Promise<void>;
   onLogActivity: (actionType: 'CREATE' | 'UPDATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
 
@@ -46,7 +47,7 @@ const InputField = ({ label, field, type = 'text', required = false, placeholder
   </div>
 );
 
-const TeacherManagement: React.FC<TeacherManagementProps> = ({ teachers, setTeachers, onLogActivity }) => {
+const TeacherManagement: React.FC<TeacherManagementProps> = ({ teachers, setTeachers, onDeleteTeacher, onLogActivity }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<TeacherAssignment | null>(null);
@@ -144,9 +145,13 @@ const TeacherManagement: React.FC<TeacherManagementProps> = ({ teachers, setTeac
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!teacherToDelete) return;
-    setTeachers(teachers.filter(t => t.id !== teacherToDelete.id));
+    if (onDeleteTeacher) {
+      await onDeleteTeacher(teacherToDelete.id);
+    } else {
+      setTeachers(teachers.filter(t => t.id !== teacherToDelete.id));
+    }
     onLogActivity('DELETE', 'Faculty Portal', teacherToDelete.name, 'Formally relieved faculty member from academy registry.');
     setTeacherToDelete(null);
   };
@@ -476,7 +481,7 @@ const TeacherManagement: React.FC<TeacherManagementProps> = ({ teachers, setTeac
                     <div className="flex justify-end gap-3">
                        <button 
                          onClick={() => startEdit(t)} 
-                         className="w-11 h-11 bg-rose-50 text-rose-600 rounded-[1.2rem] hover:bg-rose-950 hover:text-white transition-all shadow-sm flex items-center justify-center group/edit"
+                         className="w-11 h-11 bg-teal-50 text-teal-600 rounded-[1.2rem] hover:bg-rose-950 hover:text-white transition-all shadow-sm flex items-center justify-center group/edit"
                        >
                          <i className="fa-solid fa-pen-nib group-hover/edit:rotate-12 transition-transform"></i>
                        </button>

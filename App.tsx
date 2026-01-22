@@ -211,11 +211,14 @@ const App: React.FC = () => {
     return async (newData: T) => {
       setter(newData);
       storage.set(key, newData);
+      setIsSyncing(true);
       try {
         await dbService.upsert(table, newData);
+        setIsSyncing(false);
       } catch (err) {
         console.error(`Sync Error [${table}]:`, err);
         triggerNotification('Sync Delayed', 'Changes saved locally. Cloud sync pending.', 'info');
+        setIsSyncing(false);
       }
     };
   };
@@ -225,10 +228,13 @@ const App: React.FC = () => {
       setter(prev => prev.filter((item: any) => item.id !== id));
       const currentLocal = storage.get<T[]>(key, []);
       storage.set(key, currentLocal.filter((item: any) => item.id !== id));
+      setIsSyncing(true);
       try {
         await dbService.delete(table, id);
+        setIsSyncing(false);
       } catch (err) {
         console.error(`Delete Sync Error [${table}]:`, err);
+        setIsSyncing(false);
       }
     };
   };
@@ -258,6 +264,7 @@ const App: React.FC = () => {
   const deleteStudent = createSyncDelete(DB_KEYS.STUDENTS, 'students', setStudents);
   const deleteNotice = createSyncDelete(DB_KEYS.NOTICES, 'notices', setNotices);
   const deleteGalleryItem = createSyncDelete(DB_KEYS.GALLERY, 'gallery', setGallery);
+  const deleteTeacher = createSyncDelete(DB_KEYS.TEACHERS, 'teachers', setTeachers);
 
   if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
@@ -278,13 +285,13 @@ const App: React.FC = () => {
       case 'cancelled-students': return <CancelledStudents user={currentUser} students={students} onUpdateStudents={updateStudents} onLogActivity={addActivity} />;
       case 'student-reports': return <StudentReports students={activeStudents} attendance={attendance} branding={schoolBranding} teachers={teachers} />;
       case 'exam-entry': return <ExamEntry user={currentUser} students={activeStudents} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
-      case 'teachers': return <TeacherManagement teachers={teachers} setTeachers={updateTeachers} onLogActivity={addActivity} />;
+      case 'teachers': return <TeacherManagement teachers={teachers} setTeachers={updateTeachers} onLogActivity={addActivity} onDeleteTeacher={deleteTeacher} />;
       case 'food': return <FoodChart user={currentUser} foodChart={foodChart} onUpdateFoodChart={updateFoodChart} />;
       case 'curriculum': return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} onLogActivity={addActivity} />;
       case 'marksheet': return <MarksheetManager user={currentUser} students={activeStudents} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} branding={schoolBranding} />;
       case 'certs': return <CertificateHub students={activeStudents} branding={schoolBranding} />;
       case 'attendance': return <Attendance user={currentUser} students={activeStudents} attendance={attendance} setAttendance={updateAttendance} />;
-      case 'notices': return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} students={activeStudents} onLogActivity={addActivity} />;
+      case 'notices': return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} students={activeStudents} onLogActivity={addActivity} onDeleteNotice={deleteNotice} />;
       case 'homework': return <HomeworkManager user={currentUser} homeworks={homeworks} setHomeworks={updateHomework} onDelete={deleteHomework} students={activeStudents} onLogActivity={addActivity} />;
       case 'fees': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} onLogActivity={addActivity} />;
       case 'fees-setup': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" onLogActivity={addActivity} />;
@@ -296,9 +303,9 @@ const App: React.FC = () => {
   return (
     <div className={`flex flex-col md:flex-row h-screen h-[100dvh] overflow-hidden relative transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
       {isSyncing && (
-        <div className="fixed top-24 right-6 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-bounce border border-indigo-400">
-           <i className="fa-solid fa-cloud-arrow-down text-xs"></i>
-           <span className="text-[10px] font-black uppercase tracking-widest">Syncing Cloud</span>
+        <div className="fixed top-24 right-6 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-pulse border border-indigo-400">
+           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
+           <span className="text-[10px] font-black uppercase tracking-widest">Active Sync Node</span>
         </div>
       )}
 
