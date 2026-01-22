@@ -37,21 +37,24 @@
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 <script>
+  /**
+   * Safe Service Worker Registration
+   * AI Studio jaise sandboxed environments mein origin mismatch errors common hain.
+   * Hum ensure karenge ki SW usi origin se load ho jahan app hosted hai.
+   */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      /**
-       * Resolve the Service Worker path relative to the current location 
-       * to prevent origin mismatch errors in frames.
-       */
-      const swUrl = './sw.js';
+      // Force current origin for the script URL to prevent cross-domain mismatch
+      const swPath = '/sw.js';
+      const swFullUrl = window.location.origin + swPath;
       
-      navigator.serviceWorker.register(swUrl)
+      navigator.serviceWorker.register(swFullUrl, { scope: '/' })
         .then(reg => {
-          console.log('SW Registered successfully:', reg.scope);
+          console.debug('SW: Offline capabilities ready.', reg.scope);
         })
         .catch(err => {
-          // If registration fails (common in restricted sandboxes), we log a warning but keep the app functional.
-          console.warn('Service Worker registration bypassed or restricted in this environment:', err.message);
+          // Sandboxed environment limits are logged as debug to keep console clean
+          console.debug('SW: Registration bypassed or restricted (Expected in Sandbox):', err.message);
         });
     });
   }
