@@ -257,6 +257,7 @@ const App: React.FC = () => {
   const deleteHomework = createSyncDelete(DB_KEYS.HOMEWORK, 'homework', setHomeworks);
   const deleteStudent = createSyncDelete(DB_KEYS.STUDENTS, 'students', setStudents);
   const deleteNotice = createSyncDelete(DB_KEYS.NOTICES, 'notices', setNotices);
+  const deleteGalleryItem = createSyncDelete(DB_KEYS.GALLERY, 'gallery', setGallery);
 
   if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
@@ -271,7 +272,7 @@ const App: React.FC = () => {
       case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={activeStudents} />;
       case 'leaves': return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} onLogActivity={addActivity} />;
       case 'messages': return <MessageManager user={currentUser} messages={messages} onUpdateMessages={updateMessages} />;
-      case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} isDarkMode={isDarkMode} onLogActivity={addActivity} />;
+      case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} onDeleteItem={deleteGalleryItem} isDarkMode={isDarkMode} onLogActivity={addActivity} />;
       case 'activity': return <ActivityReport activities={activities} onClearLog={() => updateActivities([])} />;
       case 'students': return <StudentManagement user={currentUser} students={students} setStudents={updateStudents} onDelete={deleteStudent} onLogActivity={addActivity} />;
       case 'cancelled-students': return <CancelledStudents user={currentUser} students={students} onUpdateStudents={updateStudents} onLogActivity={addActivity} />;

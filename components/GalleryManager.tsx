@@ -7,6 +7,7 @@ interface GalleryManagerProps {
   user: User;
   gallery: GalleryItem[];
   onUpdateGallery: (items: GalleryItem[]) => void;
+  onDeleteItem: (id: string) => Promise<void>;
   isDarkMode: boolean;
   onLogActivity: (actionType: 'CREATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
@@ -18,7 +19,7 @@ interface PendingFile {
   name: string;
 }
 
-const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdateGallery, isDarkMode, onLogActivity }) => {
+const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdateGallery, onDeleteItem, isDarkMode, onLogActivity }) => {
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'IMAGE' | 'VIDEO'>('ALL');
   const [gradeFilter, setGradeFilter] = useState<'All' | string>('All');
   const [isAdding, setIsAdding] = useState(false);
@@ -115,9 +116,9 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
     setIsAdding(false);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!isAdmin || !itemToDelete) return;
-    onUpdateGallery(gallery.filter(item => item.id !== itemToDelete.id));
+    await onDeleteItem(itemToDelete.id);
     onLogActivity('DELETE', 'Memory Wall', itemToDelete.title, `Permanently removed asset from Class ${itemToDelete.grade} archives.`);
     setItemToDelete(null);
   };
@@ -128,13 +129,18 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
     );
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (window.confirm(`Permanently erase ${selectedIds.length} selected items?`)) {
-      onUpdateGallery(gallery.filter(item => !selectedIds.includes(item.id)));
-      onLogActivity('DELETE', 'Memory Wall', 'Multiple Assets', `Bulk erased ${selectedIds.length} items from gallery registry.`);
+    if (window.confirm(`Permanently erase ${selectedIds.length} selected items from database?`)) {
+      const idsToDelete = [...selectedIds];
+      setIsProcessing(true);
+      for (const id of idsToDelete) {
+        await onDeleteItem(id);
+      }
+      onLogActivity('DELETE', 'Memory Wall', 'Multiple Assets', `Bulk erased ${idsToDelete.length} items from gallery registry.`);
       setSelectedIds([]);
       setIsSelectMode(false);
+      setIsProcessing(false);
     }
   };
 
@@ -193,10 +199,10 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                   <>
                     <button 
                       onClick={handleBulkDelete}
-                      disabled={selectedIds.length === 0}
+                      disabled={selectedIds.length === 0 || isProcessing}
                       className="px-6 py-4 bg-rose-500 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.3em] shadow-xl hover:bg-rose-400 transition-all disabled:opacity-30"
                     >
-                       Erase ({selectedIds.length})
+                       {isProcessing ? 'Erasing...' : `Erase (${selectedIds.length})`}
                     </button>
                     <button 
                       onClick={() => { setIsSelectMode(false); setSelectedIds([]); }}
