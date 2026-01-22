@@ -262,6 +262,12 @@ const App: React.FC = () => {
   const deleteTeacher = createSyncDelete(DB_KEYS.TEACHERS, 'teachers', setTeachers);
   const deleteCurriculum = createSyncDelete(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
 
+  const updateUserProfile = (updatedUser: User) => {
+    setCurrentUser(updatedUser);
+    storage.set(DB_KEYS.USER, updatedUser);
+    triggerNotification('Security Updated', 'Admin credentials synchronized.', 'success');
+  };
+
   if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
   const renderContent = () => {
@@ -290,7 +296,7 @@ const App: React.FC = () => {
       case 'fees': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} onLogActivity={addActivity} />;
       case 'fees-setup': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" onLogActivity={addActivity} />;
       case 'icards': return <ICardGenerator students={activeStudents} user={currentUser} branding={schoolBranding} />;
-      case 'activity': return <ActivityReport activities={activities} onClearLog={() => { setActivities([]); dbService.delete('activities', 'all'); }} />;
+      case 'activity': return <ActivityReport user={currentUser} activities={activities} onClearLog={() => { setActivities([]); dbService.delete('activities', 'all'); }} />;
       default: return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} foodChart={foodChart} />;
     }
   };
@@ -305,7 +311,7 @@ const App: React.FC = () => {
       )}
       <div className="fixed top-16 right-4 z-[7000] flex flex-col gap-2 w-full max-w-[280px]">
          {notifications.map(n => (
-           <div key={n.id} className={`p-4 rounded-2xl shadow-2xl border-l-4 animate-fade-in ${isDarkMode ? 'bg-[#1e293b] border-indigo-500 text-white' : 'bg-white border-indigo-500 text-slate-800 shadow-indigo-900/10'}`}>
+           <div key={n.id} className={`p-4 rounded-2xl shadow-2xl border-l-4 animate-fade-in ${isDarkMode ? 'bg-[#1e293b] border-indigo-500 text-white' : 'bg-white border-indigo-50 text-slate-800 shadow-indigo-900/10'}`}>
               <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{n.title}</p>
               <p className="text-[11px] font-bold mt-1 opacity-80">{n.message}</p>
            </div>
