@@ -154,11 +154,11 @@ const App: React.FC = () => {
       if (ttData.length) { setTimetable(ttData); storage.set(DB_KEYS.TIMETABLE, ttData); }
       
       setIsSyncing(false);
-      triggerNotification('Refresh Success', 'Academy registry is now fully synchronized.', 'success');
+      triggerNotification('Refresh Success', 'Registry synchronized.', 'success');
     } catch (err) {
       console.error("Master Sync Failure:", err);
       setIsSyncing(false);
-      triggerNotification('Refresh Failed', 'Check your connection and try again.', 'error');
+      triggerNotification('Refresh Failed', 'Connection error.', 'error');
     }
   }, [triggerNotification]);
 
@@ -167,7 +167,7 @@ const App: React.FC = () => {
     const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
     if (savedUser) setCurrentUser(savedUser);
 
-    // Initial Load from Cache (Immediate offline support)
+    // Initial Load from Cache
     setStudents(storage.get(DB_KEYS.STUDENTS, []));
     setNotices(storage.get(DB_KEYS.NOTICES, []));
     setHomeworks(storage.get(DB_KEYS.HOMEWORK, []));
@@ -177,34 +177,22 @@ const App: React.FC = () => {
     setFoodChart(storage.get(DB_KEYS.FOOD_CHART, DEFAULT_FOOD_CHART));
     setCurriculum(storage.get(DB_KEYS.CURRICULUM, []));
     setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
-    setFeeStructures(storage.get(DB_KEYS.FEE_STRUCTURES, []));
-    setSubjects(storage.get(DB_KEYS.SUBJECTS, []));
-    setTimetable(storage.get(DB_KEYS.TIMETABLE, []));
     setAvailableSubjects(storage.get(DB_KEYS.SUBJECT_LIST, DEFAULT_SUBJECTS));
 
     // Initial Fetch from Cloud
     syncAll();
 
     // SETUP REAL-TIME LISTENERS
-    const studentSub = dbService.subscribe('students', (p) => { if (p.eventType === 'DELETE') { setStudents(prev => prev.filter(s => s.id !== p.old.id)); } else { syncAll(); } });
-    const teacherSub = dbService.subscribe('teachers', (p) => syncAll());
-    const noticeSub = dbService.subscribe('notices', (p) => syncAll());
-    const homeworkSub = dbService.subscribe('homework', (p) => syncAll());
-    const gallerySub = dbService.subscribe('gallery', (p) => syncAll());
-    const foodSub = dbService.subscribe('food_chart', (p) => syncAll());
-    const curriculumSub = dbService.subscribe('curriculum', (p) => syncAll());
+    const studentSub = dbService.subscribe('students', () => syncAll());
+    const curriculumSub = dbService.subscribe('curriculum', () => syncAll());
+    const foodSub = dbService.subscribe('food_chart', () => syncAll());
 
-    // Auto-Reconnect on Network Recovery
     window.addEventListener('online', syncAll);
 
     return () => {
       studentSub.unsubscribe();
-      teacherSub.unsubscribe();
-      noticeSub.unsubscribe();
-      homeworkSub.unsubscribe();
-      gallerySub.unsubscribe();
-      foodSub.unsubscribe();
       curriculumSub.unsubscribe();
+      foodSub.unsubscribe();
       window.removeEventListener('online', syncAll);
     };
   }, [syncAll]);
@@ -218,6 +206,22 @@ const App: React.FC = () => {
   };
 
   // Master Update Functions
+  const createSyncUpdate = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T>>) => {
+    return async (newData: T) => {
+      setter(newData);
+      storage.set(key, newData);
+      setIsSyncing(true);
+      try {
+        const success = await dbService.upsert(table, newData);
+        if (!success) throw new Error("Cloud rejected update");
+        setIsSyncing(false);
+      } catch (err) {
+        setIsSyncing(false);
+        triggerNotification('Cloud Sync Delayed', 'Local copy saved.', 'sync');
+      }
+    };
+  };
+
   const updateNotices = createSyncUpdate(DB_KEYS.NOTICES, 'notices', setNotices);
   const updateStudents = createSyncUpdate(DB_KEYS.STUDENTS, 'students', setStudents);
   const updateTeachers = createSyncUpdate(DB_KEYS.TEACHERS, 'teachers', setTeachers);
@@ -238,35 +242,17 @@ const App: React.FC = () => {
   const updateSubjects = createSyncUpdate(DB_KEYS.SUBJECTS, 'master_subjects', setSubjects);
   const updateTimetable = createSyncUpdate(DB_KEYS.TIMETABLE, 'master_timetable', setTimetable);
 
-  function createSyncUpdate<T>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T>>) {
-    return async (newData: T) => {
-      setter(newData);
-      storage.set(key, newData);
-      setIsSyncing(true);
-      try {
-        const success = await dbService.upsert(table, newData);
-        if (!success) throw new Error("Cloud rejected update");
-        setIsSyncing(false);
-      } catch (err) {
-        setIsSyncing(false);
-        triggerNotification('Cloud Sync Delayed', 'Your changes are saved locally but cloud sync failed. We will retry automatically.', 'sync');
-      }
-    };
-  };
-
   const createSyncDelete = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T[]>>) => {
     return async (id: string) => {
       setter(prev => prev.filter((item: any) => item.id !== id));
       const currentLocal = storage.get<T[]>(key, []);
       storage.set(key, currentLocal.filter((item: any) => item.id !== id));
-      
       setIsSyncing(true);
       try {
         await dbService.delete(table, id);
         setIsSyncing(false);
       } catch (err) {
         setIsSyncing(false);
-        console.error("Delete Sync Failed");
       }
     };
   };
@@ -329,30 +315,6 @@ const App: React.FC = () => {
          ))}
       </div>
 
-      {/* Mobile Nav Header */}
-      <div className={`md:hidden flex items-center justify-between px-6 py-4 border-b shrink-0 z-[2000] ${isDarkMode ? 'bg-[#0f172a] border-white/5' : 'bg-white border-slate-100 shadow-sm'}`}>
-         <div className="flex items-center gap-3">
-            <button 
-               onClick={() => setIsSidebarOpen(true)}
-               className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all ${isDarkMode ? 'bg-white/5 text-slate-400' : 'bg-slate-100 text-slate-600'}`}
-            >
-               <i className="fa-solid fa-bars-staggered"></i>
-            </button>
-            <div className="flex flex-col">
-               <span className={`font-black text-xs tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{(schoolBranding?.name || 'DIGITAL CORE').toUpperCase()}</span>
-               <span className={`text-[7px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Academy Node</span>
-            </div>
-         </div>
-         <div className="flex items-center gap-3">
-            <button onClick={syncAll} disabled={isSyncing} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${isSyncing ? 'animate-spin text-emerald-400' : 'text-indigo-400 bg-white/5'}`}>
-               <i className="fa-solid fa-rotate"></i>
-            </button>
-            <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${isDarkMode ? 'text-amber-400 bg-amber-400/10' : 'text-indigo-600 bg-indigo-50'}`}>
-               <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
-            </button>
-         </div>
-      </div>
-
       <Sidebar 
         role={currentUser.role} 
         activeTab={activeTab} 
@@ -396,10 +358,6 @@ const App: React.FC = () => {
            <span className="text-[9px] font-black uppercase">Menu</span>
         </button>
       </div>
-
-      <style>{`
-        .shadow-up { box-shadow: 0 -4px 12px rgba(0,0,0,0.05); }
-      `}</style>
     </div>
   );
 };

@@ -49,7 +49,6 @@ const toCamelCase = (obj: any) => {
 
 const isTableNotFoundError = (error: any) => {
   if (!error) return false;
-  // Check code 42P01 (Postgres Undefined Table) or PostgREST error messages
   return error.code === '42P01' || 
          (error.message && error.message.includes('Could not find the table')) ||
          (error.message && error.message.includes('does not exist'));
@@ -62,7 +61,7 @@ export const dbService = {
       
       if (error) {
         if (isTableNotFoundError(error)) {
-          console.info(`Supabase Sync: Table [${table}] not found in cloud schema. This is normal for initial setups. Using local registry.`);
+          console.info(`Supabase Sync: Table [${table}] not found. Using local data.`);
           return [];
         }
         throw error;
@@ -97,11 +96,14 @@ export const dbService = {
       let dataToPush: any;
       let allowedColumns: string[] | undefined = undefined;
 
-      // Schema mapping for consistency
+      // Schema mapping for consistency and explicit column handling
       if (table === 'students') {
         allowedColumns = ['id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender', 'blood_group', 'aadhar_no', 'photo', 'grade', 'section', 'medium', 'father_name', 'mother_name', 'guardian_name', 'father_occupation', 'phone', 'alternate_phone', 'email', 'address', 'city', 'state', 'pincode', 'permanent_address', 'prev_school_name', 'prev_last_class', 'tc_no', 'total_fees', 'paid_fees', 'status', 'academic_year', 'admission_date', 'parent_name', 'emergency_contact', 'emergency_contact_name'];
       } else if (table === 'teachers') {
         allowedColumns = ['id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group', 'aadhar_no', 'photo', 'phone', 'email', 'address', 'permanent_address', 'designation', 'subject', 'joining_date', 'employment_type', 'experience', 'qualification', 'professional_degree', 'university', 'passing_year', 'assigned_grades', 'assigned_sections', 'is_class_teacher', 'salary_type', 'basic_salary', 'bank_name', 'account_no', 'ifsc_code', 'status'];
+      } else if (table === 'curriculum') {
+        // Explicitly defining columns for curriculum to ensure file data maps correctly
+        allowedColumns = ['id', 'grade', 'subject', 'title', 'file_data', 'file_type', 'file_name', 'date'];
       }
 
       if (table === 'subject_list') {
@@ -128,7 +130,7 @@ export const dbService = {
       
       if (error) {
         if (isTableNotFoundError(error)) {
-           console.warn(`Supabase Push: Table [${table}] missing. Create it on Supabase dashboard to enable cloud sync.`);
+           console.warn(`Supabase Push: Table [${table}] missing. Auto-save to local cache instead.`);
            return false;
         }
         throw error;
@@ -148,10 +150,9 @@ export const dbService = {
       
       const { error } = await supabase.from(table).delete().eq(pk, id);
       if (error) {
-        if (isTableNotFoundError(error)) return true; // Silent return if table doesn't exist
+        if (isTableNotFoundError(error)) return true;
         throw error;
       }
-      console.log(`Supabase Delete Success [${table}]: ${id}`);
       return true;
     } catch (err: any) {
       console.error(`Supabase Delete Failure [${table}]:`, err.message);
