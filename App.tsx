@@ -146,6 +146,7 @@ const App: React.FC = () => {
       if (aData.length) { setAttendance(aData); storage.set(DB_KEYS.ATTENDANCE, aData); }
       if (tData.length) { setTeachers(tData); storage.set(DB_KEYS.TEACHERS, tData); }
       if (fData.length) { setFoodChart(fData); storage.set(DB_KEYS.FOOD_CHART, fData); }
+      if (cData.length) { setCurriculum(cData); storage.set(DB_KEYS.CURRICULUM, cData); }
       if (galData.length) { setGallery(galData); storage.set(DB_KEYS.GALLERY, galData); }
       if (brandData) { setSchoolBranding(brandData as any); storage.set(DB_KEYS.SCHOOL_BRANDING, brandData); }
       if (permData) { setPermissions(permData as any); storage.set(DB_KEYS.ACCESS_PERMISSIONS, permData); }
@@ -166,7 +167,7 @@ const App: React.FC = () => {
     const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
     if (savedUser) setCurrentUser(savedUser);
 
-    // Initial Load from Cache
+    // Initial Load from Cache (Immediate offline support)
     setStudents(storage.get(DB_KEYS.STUDENTS, []));
     setNotices(storage.get(DB_KEYS.NOTICES, []));
     setHomeworks(storage.get(DB_KEYS.HOMEWORK, []));
@@ -174,6 +175,11 @@ const App: React.FC = () => {
     setTeachers(storage.get(DB_KEYS.TEACHERS, []));
     setGallery(storage.get(DB_KEYS.GALLERY, []));
     setFoodChart(storage.get(DB_KEYS.FOOD_CHART, DEFAULT_FOOD_CHART));
+    setCurriculum(storage.get(DB_KEYS.CURRICULUM, []));
+    setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
+    setFeeStructures(storage.get(DB_KEYS.FEE_STRUCTURES, []));
+    setSubjects(storage.get(DB_KEYS.SUBJECTS, []));
+    setTimetable(storage.get(DB_KEYS.TIMETABLE, []));
     setAvailableSubjects(storage.get(DB_KEYS.SUBJECT_LIST, DEFAULT_SUBJECTS));
 
     // Initial Fetch from Cloud
@@ -186,6 +192,7 @@ const App: React.FC = () => {
     const homeworkSub = dbService.subscribe('homework', (p) => syncAll());
     const gallerySub = dbService.subscribe('gallery', (p) => syncAll());
     const foodSub = dbService.subscribe('food_chart', (p) => syncAll());
+    const curriculumSub = dbService.subscribe('curriculum', (p) => syncAll());
 
     // Auto-Reconnect on Network Recovery
     window.addEventListener('online', syncAll);
@@ -197,6 +204,7 @@ const App: React.FC = () => {
       homeworkSub.unsubscribe();
       gallerySub.unsubscribe();
       foodSub.unsubscribe();
+      curriculumSub.unsubscribe();
       window.removeEventListener('online', syncAll);
     };
   }, [syncAll]);
