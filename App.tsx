@@ -173,6 +173,7 @@ const App: React.FC = () => {
     setAttendance(storage.get(DB_KEYS.ATTENDANCE, []));
     setTeachers(storage.get(DB_KEYS.TEACHERS, []));
     setGallery(storage.get(DB_KEYS.GALLERY, []));
+    setFoodChart(storage.get(DB_KEYS.FOOD_CHART, DEFAULT_FOOD_CHART));
     setAvailableSubjects(storage.get(DB_KEYS.SUBJECT_LIST, DEFAULT_SUBJECTS));
 
     // Initial Fetch from Cloud
@@ -184,6 +185,7 @@ const App: React.FC = () => {
     const noticeSub = dbService.subscribe('notices', (p) => syncAll());
     const homeworkSub = dbService.subscribe('homework', (p) => syncAll());
     const gallerySub = dbService.subscribe('gallery', (p) => syncAll());
+    const foodSub = dbService.subscribe('food_chart', (p) => syncAll());
 
     // Auto-Reconnect on Network Recovery
     window.addEventListener('online', syncAll);
@@ -194,6 +196,7 @@ const App: React.FC = () => {
       noticeSub.unsubscribe();
       homeworkSub.unsubscribe();
       gallerySub.unsubscribe();
+      foodSub.unsubscribe();
       window.removeEventListener('online', syncAll);
     };
   }, [syncAll]);
@@ -272,7 +275,7 @@ const App: React.FC = () => {
     const activeStudents = students.filter(s => s.status !== 'CANCELLED');
 
     switch (activeTab) {
-      case 'dashboard': return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} />;
+      case 'dashboard': return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} foodChart={foodChart} />;
       case 'school-setup': return <SchoolSetup subjects={subjects} onUpdateSubjects={updateSubjects} timetable={timetable} onUpdateTimetable={updateTimetable} teachers={teachers} onLogActivity={addActivity} />;
       case 'access-control': return <AccessControl permissions={permissions} onUpdatePermissions={updatePermissions} menuItems={DEFAULT_MENU_ITEMS} />;
       case 'fee-reports': return <FeeReports students={activeStudents} transactions={feeTransactions} />;
@@ -295,7 +298,7 @@ const App: React.FC = () => {
       case 'fees': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} onLogActivity={addActivity} />;
       case 'fees-setup': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" onLogActivity={addActivity} />;
       case 'icards': return <ICardGenerator students={activeStudents} user={currentUser} branding={schoolBranding} />;
-      default: return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} />;
+      default: return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} foodChart={foodChart} />;
     }
   };
 

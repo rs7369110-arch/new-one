@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useRef } from 'react';
-import { User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, Language, UserRole, SchoolBranding, DEFAULT_BRANDING } from '../types';
+import { User, Student, Notice, Homework, AttendanceRecord, TeacherAssignment, Language, UserRole, SchoolBranding, DEFAULT_BRANDING, FoodItem } from '../types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import Logo from './Logo';
 
@@ -19,6 +19,7 @@ interface DashboardProps {
   branding: SchoolBranding;
   onUpdateBranding: (brand: SchoolBranding) => void;
   setActiveTab?: (tab: string) => void;
+  foodChart?: FoodItem[];
 }
 
 const translations = {
@@ -40,7 +41,8 @@ const translations = {
     analyticsLive: "Analytics Live",
     registryClean: "Registry Clean",
     myChild: "My Child",
-    accessControl: "Access Tower"
+    accessControl: "Access Tower",
+    todaysMenu: "Today's Menu"
   },
   [Language.GU]: {
     commandCenter: "કમાન્ડ સેન્ટર",
@@ -60,12 +62,13 @@ const translations = {
     analyticsLive: "લાઇવ વિશ્લેષણ",
     registryClean: "રજિસ્ટ્રી ખાલી છે",
     myChild: "મારું બાળક",
-    accessControl: "એક્સેસ ટાવર"
+    accessControl: "એક્સેસ ટાવર",
+    todaysMenu: "આજનું મેનૂ"
   }
 };
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  user, students, notices, onUpdateNotices, homeworks, onUpdateHomework, attendance, teachers, onUpdateTeachers, isDarkMode, lang, branding, onUpdateBranding, setActiveTab
+  user, students, notices, onUpdateNotices, homeworks, onUpdateHomework, attendance, teachers, onUpdateTeachers, isDarkMode, lang, branding, onUpdateBranding, setActiveTab, foodChart = []
 }) => {
   const t = translations[lang];
   const isParent = user.role === UserRole.PARENT;
@@ -77,6 +80,12 @@ const Dashboard: React.FC<DashboardProps> = ({
   const safeBranding = branding || DEFAULT_BRANDING;
   const [brandForm, setBrandForm] = useState<SchoolBranding>(safeBranding);
   const brandLogoRef = useRef<HTMLInputElement>(null);
+
+  const todaysMenu = useMemo(() => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDay = days[new Date().getDay()];
+    return foodChart.find(f => f.day === currentDay);
+  }, [foodChart]);
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -241,19 +250,26 @@ const Dashboard: React.FC<DashboardProps> = ({
                </p>
             </div>
          </div>
-         {isStaff && (
-           <div className="flex gap-2">
+         <div className="flex gap-2">
+            <button 
+                onClick={() => setActiveTab?.('food')}
+                className="px-6 py-3 bg-emerald-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2"
+            >
+                <i className="fa-solid fa-utensils"></i> {t.todaysMenu}
+            </button>
+            {isStaff && (
               <button 
                 onClick={() => setActiveTab?.('homework')}
                 className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg hover:bg-black transition-all flex items-center gap-2"
               >
                 <i className="fa-solid fa-book-open"></i> Homework Hub
               </button>
-           </div>
-         )}
+            )}
+         </div>
       </header>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* TODAY'S FOOD MENU CARD */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         {stats.map((item) => (
           <button 
             key={item.label} 
@@ -272,27 +288,45 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bento-card p-6 rounded-[2rem] min-w-0 overflow-hidden">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-2">
-               <div className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-[10px]">
-                  <i className="fa-solid fa-chart-pie"></i>
+        <div className="lg:col-span-2 bento-card p-6 rounded-[2rem] min-w-0 overflow-hidden flex flex-col">
+           <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-[10px]">
+                        <i className="fa-solid fa-utensils"></i>
+                    </div>
+                    <h2 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{t.todaysMenu}</h2>
+                </div>
+                <span className="text-[9px] font-black text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded-md">{todaysMenu?.day}</span>
+           </div>
+           
+           {todaysMenu ? (
+               <div className="grid grid-cols-2 gap-4 flex-1 items-center">
+                    <div className={`p-4 rounded-2xl border-l-4 border-amber-500 ${isDarkMode ? 'bg-white/5' : 'bg-amber-50'}`}>
+                        <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">Morning Kickstart</p>
+                        <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{todaysMenu.breakfast}</p>
+                    </div>
+                    <div className={`p-4 rounded-2xl border-l-4 border-emerald-500 ${isDarkMode ? 'bg-white/5' : 'bg-emerald-50'}`}>
+                        <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Afternoon Feast</p>
+                        <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{todaysMenu.lunch}</p>
+                    </div>
                </div>
-               <h2 className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{isParent ? t.childProgress : t.financeStream}</h2>
-            </div>
-          </div>
-          <div className="w-full relative block" style={{ minHeight: '280px', height: '280px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 30, top: 0, bottom: 0 }}>
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: isDarkMode ? '#64748b' : '#94a3b8', fontSize: 10, fontWeight: 900}} width={80} />
-                <Tooltip cursor={{fill: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}} contentStyle={{ background: isDarkMode ? '#1e293b' : '#ffffff', borderRadius: '16px', border: 'none', fontSize: '10px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} />
-                <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={32}>
-                  {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+           ) : (
+               <div className="flex-1 flex items-center justify-center opacity-30 italic text-xs">Menu registry empty for today.</div>
+           )}
+
+           <div className="mt-6 border-t border-white/5 pt-6 relative" style={{ minHeight: '180px', height: '180px' }}>
+                <p className="absolute top-0 left-0 text-[8px] font-black uppercase text-slate-500 tracking-widest">{isParent ? t.childProgress : t.financeStream}</p>
+                <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 30, top: 0, bottom: 0 }}>
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: isDarkMode ? '#64748b' : '#94a3b8', fontSize: 10, fontWeight: 900}} width={80} />
+                    <Tooltip cursor={{fill: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}} contentStyle={{ background: isDarkMode ? '#1e293b' : '#ffffff', borderRadius: '16px', border: 'none', fontSize: '10px', fontWeight: 'bold', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} />
+                    <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={24}>
+                    {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                    </Bar>
+                </BarChart>
+                </ResponsiveContainer>
+           </div>
         </div>
 
         <div className="bento-card p-6 rounded-[2rem] flex flex-col min-w-0 overflow-hidden">
@@ -322,7 +356,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                          </button>
                          <button 
                            onClick={(e) => { e.stopPropagation(); handleDeleteNotice(n.id, n.title); }} 
-                           className="w-7 h-7 rounded-lg bg-rose-500 text-white flex items-center justify-center text-[9px] shadow-sm hover:bg-rose-600 transition-colors"
+                           className="w-7 h-7 rounded-lg bg-rose-50 text-white flex items-center justify-center text-[9px] shadow-sm hover:bg-rose-600 transition-colors"
                            title="Permanently Remove"
                          >
                            <i className="fa-solid fa-trash-can"></i>
