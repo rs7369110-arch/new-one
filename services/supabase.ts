@@ -47,14 +47,22 @@ const toCamelCase = (obj: any) => {
   return result;
 };
 
+const isTableNotFoundError = (error: any) => {
+  if (!error) return false;
+  // Check code 42P01 (Postgres Undefined Table) or PostgREST error messages
+  return error.code === '42P01' || 
+         (error.message && error.message.includes('Could not find the table')) ||
+         (error.message && error.message.includes('does not exist'));
+};
+
 export const dbService = {
   async fetchAll(table: string) {
     try {
       const { data, error } = await supabase.from(table).select('*');
       
       if (error) {
-        if (error.code === '42P01') {
-          console.info(`Supabase Sync: Table [${table}] not found. Using local registry.`);
+        if (isTableNotFoundError(error)) {
+          console.info(`Supabase Sync: Table [${table}] not found in cloud schema. This is normal for initial setups. Using local registry.`);
           return [];
         }
         throw error;
@@ -77,7 +85,9 @@ export const dbService = {
       
       return (data || []).map(item => toCamelCase(item));
     } catch (err: any) {
-      console.error(`Fetch All Failure [${table}]:`, err.message);
+      if (!isTableNotFoundError(err)) {
+        console.error(`Fetch All Failure [${table}]:`, err.message);
+      }
       return [];
     }
   },
@@ -116,7 +126,13 @@ export const dbService = {
         ignoreDuplicates: false 
       });
       
-      if (error && error.code !== '42P01') throw error;
+      if (error) {
+        if (isTableNotFoundError(error)) {
+           console.warn(`Supabase Push: Table [${table}] missing. Create it on Supabase dashboard to enable cloud sync.`);
+           return false;
+        }
+        throw error;
+      }
       return true;
     } catch (err: any) {
       console.error(`Supabase Upsert Failure [${table}]:`, err.message);
@@ -131,7 +147,10 @@ export const dbService = {
       if (table === 'fee_structures') pk = 'grade';
       
       const { error } = await supabase.from(table).delete().eq(pk, id);
-      if (error && error.code !== '42P01') throw error;
+      if (error) {
+        if (isTableNotFoundError(error)) return true; // Silent return if table doesn't exist
+        throw error;
+      }
       console.log(`Supabase Delete Success [${table}]: ${id}`);
       return true;
     } catch (err: any) {

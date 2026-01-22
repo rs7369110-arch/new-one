@@ -136,8 +136,8 @@ const App: React.FC = () => {
         dbService.fetchAll('subject_list'),
         dbService.fetchAll('school_branding'),
         dbService.fetchAll('access_permissions'),
-        dbService.fetchAll('subjects'),
-        dbService.fetchAll('timetable')
+        dbService.fetchAll('master_subjects'),
+        dbService.fetchAll('master_timetable')
       ]);
 
       if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
@@ -206,44 +206,6 @@ const App: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
-  // Optimized Sync Helper (Optimistic UI)
-  const createSyncUpdate = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T>>) => {
-    return async (newData: T) => {
-      // 1. Update UI & Local Cache immediately
-      setter(newData);
-      storage.set(key, newData);
-      setIsSyncing(true);
-
-      // 2. Fire and Forget (mostly) to Supabase
-      try {
-        const success = await dbService.upsert(table, newData);
-        if (!success) throw new Error("Cloud rejected update");
-        setIsSyncing(false);
-      } catch (err) {
-        setIsSyncing(false);
-        triggerNotification('Cloud Sync Delayed', 'Your changes are saved locally but cloud sync failed. We will retry automatically.', 'sync');
-      }
-    };
-  };
-
-  const createSyncDelete = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T[]>>) => {
-    return async (id: string) => {
-      // 1. Instant local removal
-      setter(prev => prev.filter((item: any) => item.id !== id));
-      const currentLocal = storage.get<T[]>(key, []);
-      storage.set(key, currentLocal.filter((item: any) => item.id !== id));
-      
-      setIsSyncing(true);
-      try {
-        await dbService.delete(table, id);
-        setIsSyncing(false);
-      } catch (err) {
-        setIsSyncing(false);
-        console.error("Delete Sync Failed");
-      }
-    };
-  };
-
   // Master Update Functions
   const updateNotices = createSyncUpdate(DB_KEYS.NOTICES, 'notices', setNotices);
   const updateStudents = createSyncUpdate(DB_KEYS.STUDENTS, 'students', setStudents);
@@ -262,10 +224,42 @@ const App: React.FC = () => {
   const updateCustomTemplates = createSyncUpdate(DB_KEYS.CUSTOM_TEMPLATES, 'custom_templates', setCustomTemplates);
   const updateSchoolBranding = createSyncUpdate(DB_KEYS.SCHOOL_BRANDING, 'school_branding', setSchoolBranding);
   const updatePermissions = createSyncUpdate(DB_KEYS.ACCESS_PERMISSIONS, 'access_permissions', setPermissions);
-  const updateSubjects = createSyncUpdate(DB_KEYS.SUBJECTS, 'subjects', setSubjects);
-  const updateTimetable = createSyncUpdate(DB_KEYS.TIMETABLE, 'timetable', setTimetable);
+  const updateSubjects = createSyncUpdate(DB_KEYS.SUBJECTS, 'master_subjects', setSubjects);
+  const updateTimetable = createSyncUpdate(DB_KEYS.TIMETABLE, 'master_timetable', setTimetable);
 
-  // Deletion Hooks
+  function createSyncUpdate<T>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T>>) {
+    return async (newData: T) => {
+      setter(newData);
+      storage.set(key, newData);
+      setIsSyncing(true);
+      try {
+        const success = await dbService.upsert(table, newData);
+        if (!success) throw new Error("Cloud rejected update");
+        setIsSyncing(false);
+      } catch (err) {
+        setIsSyncing(false);
+        triggerNotification('Cloud Sync Delayed', 'Your changes are saved locally but cloud sync failed. We will retry automatically.', 'sync');
+      }
+    };
+  };
+
+  const createSyncDelete = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T[]>>) => {
+    return async (id: string) => {
+      setter(prev => prev.filter((item: any) => item.id !== id));
+      const currentLocal = storage.get<T[]>(key, []);
+      storage.set(key, currentLocal.filter((item: any) => item.id !== id));
+      
+      setIsSyncing(true);
+      try {
+        await dbService.delete(table, id);
+        setIsSyncing(false);
+      } catch (err) {
+        setIsSyncing(false);
+        console.error("Delete Sync Failed");
+      }
+    };
+  };
+
   const deleteHomework = createSyncDelete(DB_KEYS.HOMEWORK, 'homework', setHomeworks);
   const deleteStudent = createSyncDelete(DB_KEYS.STUDENTS, 'students', setStudents);
   const deleteNotice = createSyncDelete(DB_KEYS.NOTICES, 'notices', setNotices);
@@ -374,15 +368,15 @@ const App: React.FC = () => {
 
       {/* Mobile Bottom Navigation Bar */}
       <div className={`md:hidden fixed bottom-0 left-0 right-0 z-[4000] flex items-center justify-around px-4 py-3 border-t backdrop-blur-xl ${isDarkMode ? 'bg-[#0a0a0c]/90 border-white/5' : 'bg-white/90 border-slate-100 shadow-up'}`}>
-        <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'dashboard' ? 'text-indigo-500' : 'text-slate-400'}`}>
+        <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'dashboard' ? 'text-indigo-50' : 'text-slate-400'}`}>
            <i className="fa-solid fa-house-chimney text-lg"></i>
            <span className="text-[9px] font-black uppercase">Home</span>
         </button>
-        <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'attendance' ? 'text-indigo-500' : 'text-slate-400'}`}>
+        <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'attendance' ? 'text-indigo-50' : 'text-slate-400'}`}>
            <i className="fa-solid fa-calendar-check text-lg"></i>
            <span className="text-[9px] font-black uppercase">Attend</span>
         </button>
-        <button onClick={() => setActiveTab('students')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'students' ? 'text-indigo-500' : 'text-slate-400'}`}>
+        <button onClick={() => setActiveTab('students')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'students' ? 'text-indigo-50' : 'text-slate-400'}`}>
            <i className="fa-solid fa-user-plus text-lg"></i>
            <span className="text-[9px] font-black uppercase">Students</span>
         </button>
