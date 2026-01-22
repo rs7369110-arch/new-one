@@ -19,9 +19,10 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* Prevent body scroll to use app-level scroll */
+  overflow: hidden;
   scroll-behavior: smooth;
   background-color: #0a0a0c;
+  font-size: 16px; /* Standard for mobile inputs */
 }
 
 #root {
@@ -35,10 +36,15 @@ html, body {
   overscroll-behavior-y: contain;
 }
 
-/* Custom Scrollbar for desktop */
+/* Input Focus Zoom Prevention */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -50,10 +56,6 @@ html, body {
   border-radius: 10px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.4);
-}
-
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -61,4 +63,12 @@ html, body {
 
 .animate-fade-in {
   animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Mobile responsive visibility */
+@media (max-width: 768px) {
+  .hide-on-mobile { display: none !important; }
+  .full-width-on-mobile { width: 100% !important; }
+  .p-mobile-4 { padding: 1rem !important; }
+  .rounded-mobile-none { border-radius: 0 !important; }
 }

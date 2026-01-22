@@ -4,7 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL || 'https://vufysvncrrmyheyyyysu.supabase.co';
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'sb_publishable_sIc1FTJ4veBw0vx6rJkO8w_r4km2EiM';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
+});
 
 /**
  * Converts object keys to snake_case and filters out null/undefined values.
@@ -48,7 +54,7 @@ export const dbService = {
       
       if (error) {
         if (error.code === '42P01') {
-          console.info(`Supabase Sync: Table [${table}] not found on server. Using local registry.`);
+          console.info(`Supabase Sync: Table [${table}] not found. Using local registry.`);
           return [];
         }
         throw error;
@@ -71,6 +77,7 @@ export const dbService = {
       
       return (data || []).map(item => toCamelCase(item));
     } catch (err: any) {
+      console.error(`Fetch All Failure [${table}]:`, err.message);
       return [];
     }
   },
@@ -80,17 +87,11 @@ export const dbService = {
       let dataToPush: any;
       let allowedColumns: string[] | undefined = undefined;
 
-      // Define allowed columns for security and mapping
+      // Schema mapping for consistency
       if (table === 'students') {
         allowedColumns = ['id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender', 'blood_group', 'aadhar_no', 'photo', 'grade', 'section', 'medium', 'father_name', 'mother_name', 'guardian_name', 'father_occupation', 'phone', 'alternate_phone', 'email', 'address', 'city', 'state', 'pincode', 'permanent_address', 'prev_school_name', 'prev_last_class', 'tc_no', 'total_fees', 'paid_fees', 'status', 'academic_year', 'admission_date', 'parent_name', 'emergency_contact', 'emergency_contact_name'];
       } else if (table === 'teachers') {
         allowedColumns = ['id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group', 'aadhar_no', 'photo', 'phone', 'email', 'address', 'permanent_address', 'designation', 'subject', 'joining_date', 'employment_type', 'experience', 'qualification', 'professional_degree', 'university', 'passing_year', 'assigned_grades', 'assigned_sections', 'is_class_teacher', 'salary_type', 'basic_salary', 'bank_name', 'account_no', 'ifsc_code', 'status'];
-      } else if (table === 'homework') {
-        allowedColumns = ['id', 'subject', 'title', 'description', 'due_date', 'grade', 'attachment'];
-      } else if (table === 'gallery') {
-        allowedColumns = ['id', 'type', 'grade', 'title', 'description', 'url', 'date'];
-      } else if (table === 'notices') {
-        allowedColumns = ['id', 'title', 'content', 'date', 'category', 'target_grades', 'is_pinned', 'attachment'];
       }
 
       if (table === 'subject_list') {
@@ -116,8 +117,10 @@ export const dbService = {
       });
       
       if (error && error.code !== '42P01') throw error;
+      return true;
     } catch (err: any) {
       console.error(`Supabase Upsert Failure [${table}]:`, err.message);
+      return false;
     }
   },
 
@@ -130,8 +133,19 @@ export const dbService = {
       const { error } = await supabase.from(table).delete().eq(pk, id);
       if (error && error.code !== '42P01') throw error;
       console.log(`Supabase Delete Success [${table}]: ${id}`);
+      return true;
     } catch (err: any) {
       console.error(`Supabase Delete Failure [${table}]:`, err.message);
+      return false;
     }
+  },
+
+  subscribe(table: string, callback: (payload: any) => void) {
+    return supabase
+      .channel(`public:${table}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
+        callback(payload);
+      })
+      .subscribe();
   }
 };

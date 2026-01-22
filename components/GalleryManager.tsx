@@ -118,6 +118,7 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
 
   const confirmDelete = async () => {
     if (!isAdmin || !itemToDelete) return;
+    // Explicitly delete from cloud via prop
     await onDeleteItem(itemToDelete.id);
     onLogActivity('DELETE', 'Memory Wall', itemToDelete.title, `Permanently removed asset from Class ${itemToDelete.grade} archives.`);
     setItemToDelete(null);
@@ -151,45 +152,45 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
   });
 
   return (
-    <div className={`space-y-8 animate-fade-in pb-20 ${isDarkMode ? 'text-slate-100' : 'text-[#1e293b]'}`}>
-      <header className={`p-8 md:p-12 rounded-[3.5rem] border flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all duration-700 ${
+    <div className={`space-y-6 md:space-y-8 animate-fade-in pb-24 ${isDarkMode ? 'text-slate-100' : 'text-[#1e293b]'}`}>
+      <header className={`p-6 md:p-12 rounded-[2.5rem] md:rounded-[3.5rem] border flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8 transition-all duration-700 ${
         isDarkMode ? 'bg-[#0f172a] border-emerald-500/10' : 'bg-[#0f172a] text-white border-emerald-950 shadow-2xl shadow-indigo-900/20'
       }`}>
-        <div className="flex items-center gap-8 relative z-10">
-          <div className="w-20 h-20 bg-emerald-500 text-white rounded-[2.5rem] flex items-center justify-center text-4xl shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+        <div className="flex items-center gap-4 md:gap-8 relative z-10">
+          <div className="w-14 h-14 md:w-20 md:h-20 bg-emerald-500 text-white rounded-[1.5rem] md:rounded-[2.5rem] flex items-center justify-center text-2xl md:text-4xl shadow-[0_0_30px_rgba(16,185,129,0.3)]">
              <i className="fa-solid fa-photo-film"></i>
           </div>
           <div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter leading-none">Memory Wall</h1>
-            <p className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.4em] mt-3 italic">
-              {isSelectMode ? `SELECTION MODE: ${selectedIds.length} Assets Selected` : `Class-Wise Academy Archives • ${gallery.length} Assets`}
+            <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter leading-none">Memory Wall</h1>
+            <p className="text-[8px] md:text-[10px] font-black text-emerald-400 uppercase tracking-[0.4em] mt-2 italic">
+              {isSelectMode ? `${selectedIds.length} Assets Selected` : `Academy Archives • ${gallery.length} Assets`}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 relative z-10">
-           <div className={`flex p-1.5 rounded-[1.5rem] bg-white/5 border border-white/5 backdrop-blur-md`}>
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
+           <div className={`flex p-1 rounded-[1rem] md:p-1.5 md:rounded-[1.5rem] bg-white/5 border border-white/5 backdrop-blur-md`}>
               {['ALL', 'IMAGE', 'VIDEO'].map((f) => (
                 <button
                   key={f}
                   onClick={() => setActiveFilter(f as any)}
-                  className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  className={`px-3 md:px-6 py-2 rounded-lg md:rounded-xl text-[8px] md:text-[10px] font-black uppercase tracking-widest transition-all ${
                     activeFilter === f 
                     ? 'bg-emerald-500 text-white shadow-lg' 
                     : 'text-slate-400 hover:text-emerald-400'
                   }`}
                 >
-                  {f === 'ALL' ? 'Library' : f === 'IMAGE' ? 'Photos' : 'Clips'}
+                  {f === 'ALL' ? 'ALL' : f === 'IMAGE' ? 'Photos' : 'Clips'}
                 </button>
               ))}
            </div>
 
            <select 
-             className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-white font-black text-[10px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
+             className="px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 text-white font-black text-[8px] md:text-[10px] uppercase tracking-widest outline-none focus:border-emerald-500 transition-all"
              value={gradeFilter}
              onChange={e => setGradeFilter(e.target.value)}
            >
-              <option value="All">All Classes</option>
+              <option value="All">All Grades</option>
               {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n.toString()}>Class {n}</option>)}
            </select>
 
@@ -200,31 +201,29 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                     <button 
                       onClick={handleBulkDelete}
                       disabled={selectedIds.length === 0 || isProcessing}
-                      className="px-6 py-4 bg-rose-500 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.3em] shadow-xl hover:bg-rose-400 transition-all disabled:opacity-30"
+                      className="px-4 py-2 bg-rose-500 text-white rounded-xl font-black text-[8px] uppercase tracking-widest shadow-xl transition-all"
                     >
-                       {isProcessing ? 'Erasing...' : `Erase (${selectedIds.length})`}
+                       Erase ({selectedIds.length})
                     </button>
                     <button 
                       onClick={() => { setIsSelectMode(false); setSelectedIds([]); }}
-                      className="px-6 py-4 bg-white/10 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.3em] border border-white/10"
+                      className="px-4 py-2 bg-white/10 text-white rounded-xl font-black text-[8px] uppercase tracking-widest"
                     >
-                       Cancel
+                       X
                     </button>
                   </>
                 ) : (
                   <>
                     <button 
                       onClick={() => setIsSelectMode(true)}
-                      className="w-14 h-14 bg-white/10 text-rose-400 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all border border-white/5"
-                      title="Bulk Delete Mode"
+                      className="w-10 h-10 md:w-14 md:h-14 bg-white/10 text-rose-400 rounded-xl md:rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all border border-white/5"
                     >
                        <i className="fa-solid fa-trash-can"></i>
                     </button>
                     <button 
                       onClick={() => setIsAdding(true)}
-                      className="px-8 py-4 bg-amber-400 text-amber-950 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl hover:bg-amber-300 transition-all transform hover:scale-105"
+                      className="px-5 md:px-8 py-3 md:py-4 bg-amber-400 text-amber-950 rounded-xl md:rounded-[1.5rem] font-black text-[9px] md:text-[10px] uppercase tracking-widest shadow-2xl transition-all"
                     >
-                       <i className="fa-solid fa-cloud-bolt mr-2"></i>
                        Upload
                     </button>
                   </>
@@ -236,41 +235,31 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
       </header>
 
       {isAdding && isAdmin && (
-        <div className={`p-10 rounded-[4rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border-4 animate-slide-up relative overflow-hidden ${
+        <div className={`p-6 md:p-10 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border-4 animate-slide-up relative overflow-hidden ${
           isDarkMode ? 'bg-slate-900 border-emerald-500/20' : 'bg-white border-emerald-50'
         }`}>
-           <div className="flex justify-between items-center mb-10">
-              <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-xl">
-                    <i className="fa-solid fa-layer-group"></i>
-                 </div>
-                 <h2 className={`text-2xl font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>
-                    Asset Upload Engine
-                 </h2>
-              </div>
-              <button onClick={() => { setPendingFiles([]); setIsAdding(false); }} className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
-                 <i className="fa-solid fa-xmark text-xl"></i>
+           <div className="flex justify-between items-center mb-8">
+              <h2 className={`text-lg md:text-2xl font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>
+                Upload Engine
+              </h2>
+              <button onClick={() => { setPendingFiles([]); setIsAdding(false); }} className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center">
+                 <i className="fa-solid fa-xmark"></i>
               </button>
            </div>
 
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              <div className="space-y-8">
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
+              <div className="space-y-6">
                  <div className="space-y-3">
-                    <div className="flex justify-between items-center px-4">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Target Class Registry (Select Multiple)</label>
-                      <button onClick={selectAllGrades} className="text-[9px] font-black text-emerald-500 uppercase tracking-widest hover:underline">
-                        {uploadGrades.length === 12 ? 'Deselect All' : 'Select All'}
-                      </button>
-                    </div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select Target Classes</label>
                     <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                        {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => (
                          <button 
                            key={n}
                            onClick={() => toggleUploadGrade(n.toString())}
-                           className={`py-3 rounded-xl font-black text-[10px] border transition-all ${
+                           className={`py-2 rounded-lg font-black text-[9px] border transition-all ${
                              uploadGrades.includes(n.toString()) 
-                             ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg' 
-                             : 'bg-transparent border-slate-200 dark:border-white/5 text-slate-400 hover:border-emerald-500'
+                             ? 'bg-emerald-500 border-emerald-500 text-white shadow-md' 
+                             : 'bg-transparent border-slate-200 dark:border-white/5 text-slate-400'
                            }`}
                          >
                            {n}th
@@ -281,36 +270,36 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
 
                  <div 
                    onClick={() => fileInputRef.current?.click()}
-                   className={`border-4 border-dashed rounded-[3.5rem] p-20 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] group ${
-                     isDarkMode ? 'bg-slate-800/40 border-slate-700 hover:border-emerald-500/50' : 'bg-emerald-50/30 border-emerald-100 hover:border-emerald-300'
+                   className={`border-4 border-dashed rounded-[2rem] md:rounded-[3.5rem] p-10 md:p-20 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] ${
+                     isDarkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-emerald-50/30 border-emerald-100'
                    }`}
                  >
-                    <div className="w-24 h-24 bg-emerald-500 text-white rounded-[2rem] flex items-center justify-center text-5xl mb-8 shadow-2xl group-hover:rotate-12 transition-transform">
+                    <div className="w-16 h-16 md:w-24 md:h-24 bg-emerald-500 text-white rounded-2xl md:rounded-[2rem] flex items-center justify-center text-3xl md:text-5xl mb-6 shadow-2xl">
                        <i className="fa-solid fa-plus"></i>
                     </div>
-                    <p className={`font-black text-2xl tracking-tighter mb-2 ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>Select Assets</p>
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Photos & Videos • Multi-Select Enabled</p>
+                    <p className={`font-black text-lg md:text-2xl tracking-tighter mb-1 ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>Select Assets</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Photos & Videos</p>
                     <input type="file" multiple accept="image/*,video/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
                  </div>
               </div>
 
               <div className="flex flex-col h-full">
-                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mb-4 px-4">Staging Pipeline ({pendingFiles.length})</h3>
-                 <div className={`flex-1 rounded-[3rem] p-8 max-h-[450px] overflow-y-auto custom-scrollbar border-2 ${
+                 <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Staging Area ({pendingFiles.length})</h3>
+                 <div className={`flex-1 rounded-[2rem] md:rounded-[3rem] p-6 max-h-[350px] md:max-h-[450px] overflow-y-auto custom-scrollbar border-2 ${
                    isDarkMode ? 'bg-black/40 border-white/5' : 'bg-slate-50 border-emerald-100'
                  }`}>
                     {pendingFiles.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-6">
+                      <div className="grid grid-cols-3 gap-4 md:gap-6">
                          {pendingFiles.map(f => (
-                           <div key={f.id} className="relative aspect-square rounded-3xl overflow-hidden group border-4 border-transparent hover:border-emerald-500 transition-all shadow-2xl">
+                           <div key={f.id} className="relative aspect-square rounded-2xl overflow-hidden group shadow-xl">
                               {f.type === 'IMAGE' ? (
                                 <img src={f.url} className="w-full h-full object-cover" alt="Pending" />
                               ) : (
                                 <div className="w-full h-full bg-[#0f172a] flex items-center justify-center">
-                                   <i className="fa-solid fa-video text-white/20 text-2xl"></i>
+                                   <i className="fa-solid fa-video text-white/20 text-xl"></i>
                                 </div>
                               )}
-                              <button onClick={() => removePending(f.id)} className="absolute top-2 right-2 w-8 h-8 bg-rose-500 text-white rounded-xl flex items-center justify-center text-xs shadow-lg">
+                              <button onClick={() => removePending(f.id)} className="absolute top-1 right-1 w-6 h-6 bg-rose-500 text-white rounded-lg flex items-center justify-center text-[10px]">
                                  <i className="fa-solid fa-xmark"></i>
                               </button>
                            </div>
@@ -318,23 +307,23 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                       </div>
                     ) : (
                       <div className="h-full flex flex-col items-center justify-center opacity-10">
-                         <i className="fa-solid fa-images text-9xl mb-6"></i>
-                         <p className="text-xl font-black uppercase tracking-[0.4em]">Queue Empty</p>
+                         <i className="fa-solid fa-images text-6xl md:text-9xl mb-4"></i>
+                         <p className="text-sm font-black uppercase tracking-widest">Queue Empty</p>
                       </div>
                     )}
                  </div>
                  
-                 <div className="mt-8 p-6 bg-emerald-500/5 rounded-[2.5rem] border border-emerald-500/10 flex items-center justify-between">
+                 <div className="mt-6 p-4 md:p-6 bg-emerald-500/5 rounded-[1.5rem] md:rounded-[2.5rem] border border-emerald-500/10 flex items-center justify-between">
                     <div className="max-w-[50%]">
-                       <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Destinations</p>
-                       <p className={`font-black text-xs truncate ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>
-                          {uploadGrades.length > 0 ? `Classes: ${uploadGrades.sort((a,b) => parseInt(a) - parseInt(b)).join(', ')}` : 'None'}
+                       <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest">Destinations</p>
+                       <p className={`font-black text-[10px] truncate ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>
+                          {uploadGrades.length > 0 ? `Class: ${uploadGrades.join(', ')}` : 'None'}
                        </p>
                     </div>
                     <button 
                       disabled={pendingFiles.length === 0 || uploadGrades.length === 0}
                       onClick={handleBulkPublish}
-                      className="px-12 py-5 bg-emerald-500 text-white rounded-[1.8rem] font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-emerald-400 transition-all transform active:scale-95 disabled:opacity-20 text-xs"
+                      className="px-6 md:px-12 py-3 md:py-5 bg-emerald-500 text-white rounded-xl md:rounded-[1.8rem] font-black uppercase tracking-widest shadow-2xl disabled:opacity-20 text-[10px]"
                     >
                       Publish
                     </button>
@@ -345,25 +334,25 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
       )}
 
       {/* Main Grid View */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 md:gap-6">
         {filteredItems.length > 0 ? filteredItems.slice().reverse().map((item) => (
           <div key={item.id} className="group relative">
             <div 
-              className={`rounded-[2.5rem] shadow-xl transition-all duration-500 cursor-pointer overflow-hidden border transform hover:-translate-y-2 hover:scale-[1.03] flex flex-col relative ${
+              className={`rounded-[1.5rem] md:rounded-[2.5rem] shadow-xl transition-all duration-500 cursor-pointer overflow-hidden border transform hover:-translate-y-2 flex flex-col relative ${
                 isDarkMode ? 'bg-[#111827] border-white/5' : 'bg-white border-emerald-50'
               } ${isSelectMode && selectedIds.includes(item.id) ? 'ring-4 ring-emerald-500' : ''}`}
               onClick={() => isSelectMode ? toggleItemSelection(item.id) : setSelectedItem(item)}
             >
                <div className="relative aspect-square bg-slate-900 overflow-hidden">
                   {item.type === 'IMAGE' ? (
-                    <img src={item.url} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-125" alt={item.title} />
+                    <img src={item.url} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt={item.title} />
                   ) : (
                     <div className="w-full h-full relative">
                        <video className="w-full h-full object-cover">
                           <source src={item.url} />
                        </video>
                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <div className="w-14 h-14 bg-white/90 text-emerald-600 rounded-full flex items-center justify-center shadow-2xl">
+                          <div className="w-10 h-10 md:w-14 md:h-14 bg-white/90 text-emerald-600 rounded-full flex items-center justify-center shadow-2xl">
                              <i className="fa-solid fa-play ml-1"></i>
                           </div>
                        </div>
@@ -372,7 +361,7 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                   
                   {isSelectMode && (
                     <div className={`absolute inset-0 flex items-center justify-center transition-all ${selectedIds.includes(item.id) ? 'bg-emerald-500/20' : 'bg-black/40 opacity-0 group-hover:opacity-100'}`}>
-                       <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-2xl border-4 ${selectedIds.includes(item.id) ? 'bg-emerald-500 border-white text-white' : 'bg-white border-emerald-500 text-emerald-500'}`}>
+                       <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-2xl border-4 ${selectedIds.includes(item.id) ? 'bg-emerald-500 border-white text-white' : 'bg-white border-emerald-500 text-emerald-500'}`}>
                           <i className={`fa-solid ${selectedIds.includes(item.id) ? 'fa-check' : 'fa-plus'}`}></i>
                        </div>
                     </div>
@@ -381,45 +370,45 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                   {isAdmin && !isSelectMode && (
                     <button 
                       onClick={(e) => { e.stopPropagation(); setItemToDelete(item); }}
-                      className="absolute top-4 right-4 w-11 h-11 bg-rose-500 text-white rounded-2xl flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 transition-all hover:bg-rose-600 hover:rotate-12"
+                      className="absolute top-2 right-2 md:top-4 md:right-4 w-9 h-9 md:w-11 md:h-11 bg-rose-500 text-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 transition-all"
                     >
-                       <i className="fa-solid fa-trash-can"></i>
+                       <i className="fa-solid fa-trash-can text-sm"></i>
                     </button>
                   )}
 
                   {!isSelectMode && (
-                    <div className="absolute top-4 left-4 flex flex-col gap-2">
-                       <span className={`px-3 py-1 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-lg bg-indigo-600 text-white border border-white/10`}>
-                          Class {item.grade}
+                    <div className="absolute top-2 left-2 md:top-4 md:left-4">
+                       <span className={`px-2 md:px-3 py-1 rounded-lg md:rounded-xl text-[7px] md:text-[8px] font-black uppercase tracking-widest shadow-lg bg-indigo-600 text-white border border-white/10`}>
+                          Grade {item.grade}
                        </span>
                     </div>
                   )}
                </div>
 
-               <div className="p-6">
-                  <h3 className={`text-[11px] font-black truncate uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>{item.title}</h3>
+               <div className="p-4 md:p-6">
+                  <h3 className={`text-[9px] md:text-[11px] font-black truncate uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>{item.title}</h3>
                   <div className="flex items-center gap-2 mt-1">
-                     <div className="w-1 h-1 rounded-full bg-emerald-500"></div>
-                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{item.date}</p>
+                     <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest">{item.date}</p>
                   </div>
                </div>
             </div>
           </div>
         )) : (
-          <div className={`col-span-full py-40 text-center rounded-[5rem] border-4 border-dashed transition-all ${
+          <div className={`col-span-full py-20 md:py-40 text-center rounded-[3rem] md:rounded-[5rem] border-4 border-dashed transition-all ${
             isDarkMode ? 'bg-[#111827]/30 border-white/5' : 'bg-slate-50 border-emerald-100'
           }`}>
-             <i className="fa-solid fa-wind text-6xl mb-8 animate-pulse text-indigo-500"></i>
-             <p className={`text-4xl font-black uppercase ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>Archives Empty</p>
+             <i className="fa-solid fa-wind text-4xl md:text-6xl mb-4 md:mb-8 text-indigo-500"></i>
+             <p className={`text-xl md:text-4xl font-black uppercase ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>Empty Wall</p>
           </div>
         )}
       </div>
 
+      {/* Viewer Modal */}
       {selectedItem && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-6 md:p-12 lg:p-20">
-           <div className="absolute inset-0 bg-[#0a0a0c]/98 backdrop-blur-3xl animate-fade-in" onClick={() => setSelectedItem(null)}></div>
-           <div className={`relative max-w-7xl w-full rounded-[4.5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,1)] animate-scale-in flex flex-col lg:flex-row max-h-[90vh] border border-white/5 ${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
-              <div className="flex-1 bg-black flex items-center justify-center relative min-h-[400px]">
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 md:p-12">
+           <div className="absolute inset-0 bg-[#0a0a0c]/98 backdrop-blur-xl animate-fade-in" onClick={() => setSelectedItem(null)}></div>
+           <div className={`relative max-w-6xl w-full rounded-[2rem] md:rounded-[4rem] overflow-hidden shadow-2xl animate-scale-in flex flex-col lg:flex-row max-h-[90vh] border border-white/5 ${isDarkMode ? 'bg-[#111827]' : 'bg-white'}`}>
+              <div className="flex-1 bg-black flex items-center justify-center relative min-h-[300px] md:min-h-[400px]">
                  {selectedItem.type === 'IMAGE' ? (
                    <img src={selectedItem.url} className="max-w-full max-h-[85vh] object-contain" alt="Viewer" />
                  ) : (
@@ -427,49 +416,46 @@ const GalleryManager: React.FC<GalleryManagerProps> = ({ user, gallery, onUpdate
                       <source src={selectedItem.url} />
                    </video>
                  )}
-                 <button onClick={() => setSelectedItem(null)} className="absolute top-10 left-10 w-16 h-16 bg-white/10 text-white rounded-[2rem] flex items-center justify-center hover:bg-white/20 backdrop-blur-md border border-white/20 transition-all">
-                   <i className="fa-solid fa-arrow-left text-2xl"></i>
+                 <button onClick={() => setSelectedItem(null)} className="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 md:w-16 md:h-16 bg-white/10 text-white rounded-2xl flex items-center justify-center hover:bg-white/20 backdrop-blur-md border border-white/20 transition-all">
+                   <i className="fa-solid fa-arrow-left"></i>
                  </button>
               </div>
-              <div className="w-full lg:w-[450px] p-16 flex flex-col shrink-0">
-                 <div className="mb-10">
-                    <div className="flex gap-3 mb-6">
-                       <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black text-white uppercase tracking-widest ${selectedItem.type === 'IMAGE' ? 'bg-emerald-500' : 'bg-amber-400 text-amber-950'}`}>
+              <div className="w-full lg:w-[400px] p-8 md:p-12 flex flex-col shrink-0">
+                 <div className="mb-6">
+                    <div className="flex gap-2 mb-4">
+                       <span className={`px-3 py-1 rounded-lg text-[9px] font-black text-white uppercase tracking-widest ${selectedItem.type === 'IMAGE' ? 'bg-emerald-500' : 'bg-amber-400 text-amber-950'}`}>
                           {selectedItem.type}
                        </span>
-                       <span className="px-4 py-1.5 rounded-xl text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10">
-                          CLASS {selectedItem.grade}
-                       </span>
                     </div>
-                    <h2 className={`text-5xl font-black tracking-tighter leading-none mb-4 uppercase ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>{selectedItem.title}</h2>
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">{selectedItem.date}</p>
+                    <h2 className={`text-2xl md:text-4xl font-black tracking-tighter leading-none mb-3 uppercase ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>{selectedItem.title}</h2>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{selectedItem.date} • Class {selectedItem.grade}</p>
                  </div>
-                 <div className={`p-8 rounded-[2.5rem] flex-1 mb-10 overflow-y-auto italic font-medium leading-relaxed text-lg ${
+                 <div className={`p-6 rounded-[1.5rem] md:rounded-[2rem] flex-1 mb-6 overflow-y-auto italic font-medium leading-relaxed ${
                    isDarkMode ? 'bg-white/5 text-slate-300' : 'bg-slate-50 text-slate-600'
                  }`}>
                     "{selectedItem.description}"
                  </div>
-                 <div className="mt-auto pt-10 border-t border-white/5 flex justify-between items-center">
-                    <Logo size="sm" className="opacity-30" />
-                    <button onClick={() => setSelectedItem(null)} className={`px-12 py-5 rounded-[1.8rem] font-black text-[11px] uppercase tracking-[0.4em] shadow-xl ${isDarkMode ? 'bg-slate-800 text-emerald-400' : 'bg-slate-100 text-slate-500'}`}>Close</button>
+                 <div className="mt-auto flex justify-between items-center">
+                    <button onClick={() => setSelectedItem(null)} className={`w-full py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl ${isDarkMode ? 'bg-slate-800 text-emerald-400' : 'bg-slate-100 text-slate-500'}`}>Close Gallery</button>
                  </div>
               </div>
            </div>
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {itemToDelete && isAdmin && (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-6">
-           <div className="absolute inset-0 bg-[#0a0a0c]/95 backdrop-blur-xl animate-fade-in" onClick={() => setItemToDelete(null)}></div>
-           <div className={`rounded-[4rem] p-16 max-w-md w-full relative z-10 shadow-2xl animate-scale-in text-center border-t-[20px] border-rose-500 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
-              <div className="w-24 h-24 bg-rose-500/10 text-rose-500 rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-10 shadow-inner">
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6">
+           <div className="absolute inset-0 bg-[#0a0a0c]/95 backdrop-blur-lg animate-fade-in" onClick={() => setItemToDelete(null)}></div>
+           <div className={`rounded-[3rem] md:rounded-[4rem] p-10 md:p-16 max-w-md w-full relative z-10 shadow-2xl animate-scale-in text-center border-t-[15px] border-rose-500 ${isDarkMode ? 'bg-slate-900' : 'bg-white'}`}>
+              <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">
                  <i className="fa-solid fa-trash-can"></i>
               </div>
-              <h2 className={`text-4xl font-black mb-3 uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>Erase Asset?</h2>
-              <p className="text-xs text-slate-400 font-black uppercase tracking-widest mb-12">Permanently delete this item from archives.</p>
-              <div className="grid grid-cols-2 gap-5">
-                 <button onClick={() => setItemToDelete(null)} className={`py-6 rounded-[2rem] font-black text-[11px] uppercase transition-all ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Abort</button>
-                 <button onClick={confirmDelete} className="py-6 bg-rose-50 text-white rounded-[2rem] font-black text-[11px] uppercase shadow-2xl transition-all">Delete</button>
+              <h2 className={`text-2xl md:text-3xl font-black mb-2 uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-[#0f172a]'}`}>Erase Asset?</h2>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-10">This will be permanently removed from Supabase.</p>
+              <div className="grid grid-cols-2 gap-4">
+                 <button onClick={() => setItemToDelete(null)} className={`py-4 md:py-6 rounded-2xl font-black text-[10px] uppercase transition-all ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>Abort</button>
+                 <button onClick={confirmDelete} className="py-4 md:py-6 bg-rose-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-2xl transition-all">Delete</button>
               </div>
            </div>
         </div>
