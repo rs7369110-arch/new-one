@@ -153,11 +153,13 @@ const App: React.FC = () => {
       if (ttData.length) { setTimetable(ttData); storage.set(DB_KEYS.TIMETABLE, ttData); }
       
       setIsSyncing(false);
+      triggerNotification('Refresh Success', 'Academy registry is now fully synchronized.', 'success');
     } catch (err) {
       console.error("Master Sync Failure:", err);
       setIsSyncing(false);
+      triggerNotification('Refresh Failed', 'Check your connection and try again.', 'error');
     }
-  }, []);
+  }, [triggerNotification]);
 
   // Initial Data Load & Real-time Listeners
   useEffect(() => {
@@ -337,6 +339,9 @@ const App: React.FC = () => {
             </div>
          </div>
          <div className="flex items-center gap-3">
+            <button onClick={syncAll} disabled={isSyncing} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${isSyncing ? 'animate-spin text-emerald-400' : 'text-indigo-400 bg-white/5'}`}>
+               <i className="fa-solid fa-rotate"></i>
+            </button>
             <button onClick={() => setIsDarkMode(!isDarkMode)} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs ${isDarkMode ? 'text-amber-400 bg-amber-400/10' : 'text-indigo-600 bg-indigo-50'}`}>
                <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
             </button>
@@ -359,6 +364,8 @@ const App: React.FC = () => {
         branding={schoolBranding}
         onUpdateBranding={updateSchoolBranding}
         permissions={permissions}
+        onSync={syncAll}
+        isSyncing={isSyncing}
       />
       
       <main className="flex-1 overflow-y-auto mobile-scroll relative z-10 custom-scrollbar p-4 md:p-12">

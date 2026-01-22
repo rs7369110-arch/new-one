@@ -25,6 +25,8 @@ interface SidebarProps {
   branding: SchoolBranding;
   onUpdateBranding: (brand: SchoolBranding) => void;
   permissions: AccessPermissions;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }
 
 export interface MenuItem {
@@ -64,7 +66,7 @@ export const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'activity', labels: { [Language.EN]: 'Admin Log', [Language.GU]: 'એડમિન લોગ' }, icon: 'fa-clock-rotate-left', roles: [UserRole.ADMIN], color: 'hover:text-slate-400', active: 'from-slate-500/20 to-transparent border-slate-500', lightIconColor: 'text-slate-600' },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout, userName, isDarkMode, toggleTheme, unreadCounts, currentLang, toggleLanguage, isOpen, onClose, branding, onUpdateBranding, permissions }) => {
+const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogout, userName, isDarkMode, toggleTheme, unreadCounts, currentLang, toggleLanguage, isOpen, onClose, branding, onUpdateBranding, permissions, onSync, isSyncing }) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>(DEFAULT_MENU_ITEMS);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -190,6 +192,20 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+             {/* Master Refresh Button */}
+             <button 
+                onClick={onSync} 
+                disabled={isSyncing}
+                title="Master Data Sync"
+                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all shadow-sm ${
+                  isSyncing 
+                  ? 'bg-emerald-500/20 text-emerald-400 animate-spin' 
+                  : isDarkMode ? 'bg-white/5 text-indigo-400 hover:bg-white/10' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                }`}
+             >
+                <i className="fa-solid fa-rotate"></i>
+             </button>
+
              <div className="hidden md:flex">
                 <button onClick={toggleTheme} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all duration-500 shadow-sm ${isDarkMode ? 'bg-amber-500/10 text-amber-500' : 'bg-indigo-50 text-indigo-600'}`}>
                   <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
