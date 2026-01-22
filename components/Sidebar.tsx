@@ -168,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
         <div className="p-6 md:p-8 flex items-center justify-between relative z-10 border-b border-white/5">
           <div className="flex items-center gap-3 min-w-0">
             <div className="shrink-0">
-               <div className={`p-1.5 rounded-xl shadow-lg relative ring-1 overflow-hidden w-10 h-10 flex items-center justify-center ${
+               <div className={`p-1.5 rounded-xl shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_8px_16px_rgba(0,0,0,0.5)] relative ring-1 overflow-hidden w-10 h-10 flex items-center justify-center ${
                  isDarkMode ? 'bg-white/5 ring-white/10' : 'bg-slate-100 ring-slate-200'
                }`}>
                  <Logo size="sm" />
@@ -191,7 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
                 onClick={onSync} 
                 disabled={isSyncing}
                 title="Master Data Sync"
-                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all shadow-sm ${
+                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all shadow-[0_4px_0_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none ${
                   isSyncing 
                   ? 'bg-white/20 text-white animate-spin' 
                   : isDarkMode ? 'bg-white/5 text-white/40 hover:bg-white/10' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
@@ -201,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
              </button>
 
              <div className="hidden md:flex">
-                <button onClick={toggleTheme} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all duration-500 shadow-sm ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}>
+                <button onClick={toggleTheme} className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition-all duration-500 shadow-[0_4px_0_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none ${isDarkMode ? 'bg-white text-black' : 'bg-black text-white'}`}>
                   <i className={`fa-solid ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
                 </button>
              </div>
@@ -213,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
 
         <div className="h-4"></div>
 
-        <div className="flex-1 py-1 px-5 space-y-1.5 relative z-10 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 py-1 px-5 space-y-2 relative z-10 overflow-y-auto custom-scrollbar">
           {filteredMenuItems.map((item) => {
             const badgeValue = getBadgeForTab(item.id);
             const isActive = activeTab === item.id;
@@ -222,11 +222,11 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-4 transition-all duration-300 group relative overflow-hidden px-5 py-3 rounded-[1.4rem] ${
+                className={`w-full flex items-center gap-4 transition-all duration-300 group relative overflow-hidden px-5 py-3.5 rounded-[1.4rem] ${
                   isActive 
                     ? isDarkMode 
-                      ? `bg-white/10 text-white shadow-lg scale-[1.01] border-l-4 border-white`
-                      : `bg-slate-100 text-slate-900 shadow-md scale-[1.01] border-l-4 border-black`
+                      ? `bg-white/10 text-white shadow-[0_8px_20px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.1)] scale-[1.02] border-l-4 border-white`
+                      : `bg-slate-100 text-slate-900 shadow-[0_8px_20px_rgba(0,0,0,0.1),inset_0_1px_1px_rgba(255,255,255,0.8)] scale-[1.02] border-l-4 border-black`
                     : isDarkMode 
                       ? `text-white/40 hover:text-white hover:bg-white/5`
                       : `text-slate-400 hover:bg-slate-50 hover:text-black`
@@ -247,19 +247,19 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
             );
           })}
 
-          <div className="pt-4 mt-4 border-t border-white/5 space-y-1.5">
-             <button onClick={handleInstallClick} className="w-full flex items-center gap-4 px-5 py-3 rounded-[1.4rem] transition-all hover:bg-white/10 text-white/40 group">
+          <div className="pt-4 mt-4 border-t border-white/5 space-y-2">
+             <button onClick={handleInstallClick} className="w-full flex items-center gap-4 px-5 py-3 rounded-[1.4rem] transition-all hover:bg-white/10 text-white/40 group active:translate-y-0.5">
                 <i className="fa-solid fa-mobile-screen-button w-6 text-center text-sm"></i>
                 <span className="font-black tracking-widest text-[9px] uppercase">Install Node</span>
              </button>
 
              {role === UserRole.ADMIN && (
                <div className="grid grid-cols-2 gap-2 px-1 mt-1 pb-4">
-                  <button onClick={handleBackup} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 text-white/40 border border-white/10 hover:bg-white hover:text-black transition-all">
+                  <button onClick={handleBackup} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 text-white/40 border border-white/10 hover:bg-white hover:text-black transition-all shadow-[0_4px_0_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none">
                      <i className="fa-solid fa-file-export text-xs"></i>
                      <span className="text-[6px] font-black uppercase tracking-widest">Backup</span>
                   </button>
-                  <button onClick={handleRestore} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 text-white/40 border border-white/10 hover:bg-white hover:text-black transition-all">
+                  <button onClick={handleRestore} className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-white/5 text-white/40 border border-white/10 hover:bg-white hover:text-black transition-all shadow-[0_4px_0_rgba(0,0,0,0.2)] active:translate-y-1 active:shadow-none">
                      <i className="fa-solid fa-file-import text-xs"></i>
                      <span className="text-[6px] font-black uppercase tracking-widest">Restore</span>
                   </button>
@@ -269,7 +269,7 @@ const Sidebar: React.FC<SidebarProps> = ({ role, activeTab, setActiveTab, onLogo
         </div>
 
         <div className={`p-5 relative z-10 mt-auto border-t ${isDarkMode ? 'bg-white/5 border-white/5' : 'bg-slate-50/50 border-slate-100'}`}>
-          <button onClick={onLogout} className="w-full flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all duration-500 font-black text-[9px] uppercase tracking-[0.2em] group text-white/40 hover:bg-white/10 hover:text-white">
+          <button onClick={onLogout} className="w-full flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-500 font-black text-[9px] uppercase tracking-[0.2em] group text-white/40 hover:bg-rose-500/10 hover:text-rose-400 active:translate-y-0.5">
             <i className="fa-solid fa-power-off text-xs"></i>
             <span>{currentLang === Language.EN ? 'Logout' : 'લોગઆઉટ'}</span>
           </button>

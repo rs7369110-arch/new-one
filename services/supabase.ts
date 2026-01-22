@@ -102,6 +102,8 @@ export const dbService = {
         columns = ['id', 'grade', 'subject', 'title', 'file_data', 'file_type', 'file_name', 'date'];
       } else if (table === 'activities') {
         columns = ['id', 'admin_name', 'action_type', 'module', 'target', 'timestamp', 'details'];
+      } else if (table === 'food_chart') {
+        columns = ['day', 'breakfast', 'breakfast_price', 'lunch', 'lunch_price'];
       }
 
       if (table === 'subject_list') {
@@ -129,6 +131,7 @@ export const dbService = {
       if (error) {
         if (error.code === '42501') {
            console.error(`🚨 RLS POLICY ERROR: Please run the SQL Policy query for table [${table}] in Supabase.`);
+           alert(`SUPABASE ACCESS DENIED: Please run the SQL Policy for table "${table}" to allow data updates.`);
         } else if (error.code === '22P02') {
            console.error(`🚨 DATA TYPE ERROR: Table [${table}] ID might be set to 'bigint'. Please change it to 'text' in Supabase.`);
         }
