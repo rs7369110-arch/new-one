@@ -97,7 +97,7 @@ const App: React.FC = () => {
   const addActivity = useCallback(async (actionType: AdminActivity['actionType'], module: string, target: string, details?: string) => {
     if (!currentUser) return;
     const newActivity: AdminActivity = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Date.now().toString() + Math.floor(Math.random() * 1000),
       adminName: currentUser.name,
       actionType,
       module,
@@ -107,9 +107,11 @@ const App: React.FC = () => {
     };
     setActivities(prev => [...prev, newActivity]);
     try {
-      await dbService.upsert('activities', newActivity);
+      dbService.upsert('activities', newActivity).catch(() => {
+        console.debug("Activity background sync delayed.");
+      });
     } catch (err) {
-      console.warn("Activity Sync Delayed");
+      console.warn("Activities sync blocked.");
     }
   }, [currentUser]);
 
@@ -117,7 +119,7 @@ const App: React.FC = () => {
     try {
       setIsSyncing(true);
       const [
-        sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, brandData, permData, subjData, ttData
+        sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, brandData, permData, subjData, ttData, actData
       ] = await Promise.all([
         dbService.fetchAll('students'),
         dbService.fetchAll('notices'),
@@ -137,7 +139,8 @@ const App: React.FC = () => {
         dbService.fetchAll('school_branding'),
         dbService.fetchAll('access_permissions'),
         dbService.fetchAll('master_subjects'),
-        dbService.fetchAll('master_timetable')
+        dbService.fetchAll('master_timetable'),
+        dbService.fetchAll('activities')
       ]);
 
       if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
@@ -148,26 +151,22 @@ const App: React.FC = () => {
       if (fData.length) { setFoodChart(fData); storage.set(DB_KEYS.FOOD_CHART, fData); }
       if (cData.length) { setCurriculum(cData); storage.set(DB_KEYS.CURRICULUM, cData); }
       if (galData.length) { setGallery(galData); storage.set(DB_KEYS.GALLERY, galData); }
+      if (actData.length) { setActivities(actData); }
       if (brandData) { setSchoolBranding(brandData as any); storage.set(DB_KEYS.SCHOOL_BRANDING, brandData); }
       if (permData) { setPermissions(permData as any); storage.set(DB_KEYS.ACCESS_PERMISSIONS, permData); }
       if (subjData.length) { setSubjects(subjData); storage.set(DB_KEYS.SUBJECTS, subjData); }
       if (ttData.length) { setTimetable(ttData); storage.set(DB_KEYS.TIMETABLE, ttData); }
       
       setIsSyncing(false);
-      triggerNotification('Refresh Success', 'Registry synchronized.', 'success');
     } catch (err) {
       console.error("Master Sync Failure:", err);
       setIsSyncing(false);
-      triggerNotification('Refresh Failed', 'Connection error.', 'error');
     }
-  }, [triggerNotification]);
+  }, []);
 
-  // Initial Data Load & Real-time Listeners
   useEffect(() => {
     const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
     if (savedUser) setCurrentUser(savedUser);
-
-    // Initial Load from Cache
     setStudents(storage.get(DB_KEYS.STUDENTS, []));
     setNotices(storage.get(DB_KEYS.NOTICES, []));
     setHomeworks(storage.get(DB_KEYS.HOMEWORK, []));
@@ -178,17 +177,11 @@ const App: React.FC = () => {
     setCurriculum(storage.get(DB_KEYS.CURRICULUM, []));
     setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
     setAvailableSubjects(storage.get(DB_KEYS.SUBJECT_LIST, DEFAULT_SUBJECTS));
-
-    // Initial Fetch from Cloud
     syncAll();
-
-    // SETUP REAL-TIME LISTENERS
     const studentSub = dbService.subscribe('students', () => syncAll());
     const curriculumSub = dbService.subscribe('curriculum', () => syncAll());
     const foodSub = dbService.subscribe('food_chart', () => syncAll());
-
     window.addEventListener('online', syncAll);
-
     return () => {
       studentSub.unsubscribe();
       curriculumSub.unsubscribe();
@@ -205,7 +198,6 @@ const App: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
-  // Master Update Functions
   const createSyncUpdate = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T>>) => {
     return async (newData: T) => {
       setter(newData);
@@ -215,9 +207,30 @@ const App: React.FC = () => {
         const success = await dbService.upsert(table, newData);
         if (!success) throw new Error("Cloud rejected update");
         setIsSyncing(false);
+      } catch (err: any) {
+        setIsSyncing(false);
+        if (err.message.includes('row-level security') || err.message.includes('permission denied')) {
+           triggerNotification('Security Blocked', `Please update ${table} policies in Supabase.`, 'error');
+        } else if (err.message.includes('invalid input syntax')) {
+           triggerNotification('ID Mismatch', `Table ${table} expects numeric ID. Change column type to TEXT.`, 'error');
+        } else {
+           triggerNotification('Offline Mode', 'Changes saved locally.', 'sync');
+        }
+      }
+    };
+  };
+
+  const createSyncDelete = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T[]>>) => {
+    return async (id: string) => {
+      setter(prev => prev.filter((item: any) => item.id !== id));
+      const currentLocal = storage.get<T[]>(key, []);
+      storage.set(key, currentLocal.filter((item: any) => item.id !== id));
+      setIsSyncing(true);
+      try {
+        await dbService.delete(table, id);
+        setIsSyncing(false);
       } catch (err) {
         setIsSyncing(false);
-        triggerNotification('Cloud Sync Delayed', 'Local copy saved.', 'sync');
       }
     };
   };
@@ -242,32 +255,17 @@ const App: React.FC = () => {
   const updateSubjects = createSyncUpdate(DB_KEYS.SUBJECTS, 'master_subjects', setSubjects);
   const updateTimetable = createSyncUpdate(DB_KEYS.TIMETABLE, 'master_timetable', setTimetable);
 
-  const createSyncDelete = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T[]>>) => {
-    return async (id: string) => {
-      setter(prev => prev.filter((item: any) => item.id !== id));
-      const currentLocal = storage.get<T[]>(key, []);
-      storage.set(key, currentLocal.filter((item: any) => item.id !== id));
-      setIsSyncing(true);
-      try {
-        await dbService.delete(table, id);
-        setIsSyncing(false);
-      } catch (err) {
-        setIsSyncing(false);
-      }
-    };
-  };
-
   const deleteHomework = createSyncDelete(DB_KEYS.HOMEWORK, 'homework', setHomeworks);
   const deleteStudent = createSyncDelete(DB_KEYS.STUDENTS, 'students', setStudents);
   const deleteNotice = createSyncDelete(DB_KEYS.NOTICES, 'notices', setNotices);
   const deleteGalleryItem = createSyncDelete(DB_KEYS.GALLERY, 'gallery', setGallery);
   const deleteTeacher = createSyncDelete(DB_KEYS.TEACHERS, 'teachers', setTeachers);
+  const deleteCurriculum = createSyncDelete(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
 
   if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
   const renderContent = () => {
     const activeStudents = students.filter(s => s.status !== 'CANCELLED');
-
     switch (activeTab) {
       case 'dashboard': return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} foodChart={foodChart} />;
       case 'school-setup': return <SchoolSetup subjects={subjects} onUpdateSubjects={updateSubjects} timetable={timetable} onUpdateTimetable={updateTimetable} teachers={teachers} onLogActivity={addActivity} />;
@@ -283,7 +281,7 @@ const App: React.FC = () => {
       case 'exam-entry': return <ExamEntry user={currentUser} students={activeStudents} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} teachers={teachers} />;
       case 'teachers': return <TeacherManagement teachers={teachers} setTeachers={updateTeachers} onLogActivity={addActivity} onDeleteTeacher={deleteTeacher} />;
       case 'food': return <FoodChart user={currentUser} foodChart={foodChart} onUpdateFoodChart={updateFoodChart} />;
-      case 'curriculum': return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} onLogActivity={addActivity} />;
+      case 'curriculum': return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} onDeleteCurriculum={deleteCurriculum} onLogActivity={addActivity} />;
       case 'marksheet': return <MarksheetManager user={currentUser} students={activeStudents} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} branding={schoolBranding} />;
       case 'certs': return <CertificateHub students={activeStudents} branding={schoolBranding} />;
       case 'attendance': return <Attendance user={currentUser} students={activeStudents} attendance={attendance} setAttendance={updateAttendance} />;
@@ -292,6 +290,7 @@ const App: React.FC = () => {
       case 'fees': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} onLogActivity={addActivity} />;
       case 'fees-setup': return <FeesManager user={currentUser} students={activeStudents} setStudents={updateStudents} feeStructures={feeStructures} onUpdateFeeStructures={updateFeeStructures} transactions={feeTransactions} onUpdateTransactions={updateFeeTransactions} initialMode="SETUP" onLogActivity={addActivity} />;
       case 'icards': return <ICardGenerator students={activeStudents} user={currentUser} branding={schoolBranding} />;
+      case 'activity': return <ActivityReport activities={activities} onClearLog={() => { setActivities([]); dbService.delete('activities', 'all'); }} />;
       default: return <Dashboard user={currentUser} students={activeStudents} notices={notices} onUpdateNotices={updateNotices} homeworks={homeworks} onUpdateHomework={updateHomework} attendance={attendance} teachers={teachers} onUpdateTeachers={updateTeachers} isDarkMode={isDarkMode} lang={currentLang} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} setActiveTab={updateViewedStamp} foodChart={foodChart} />;
     }
   };
@@ -304,8 +303,6 @@ const App: React.FC = () => {
            <span className="text-[10px] font-black uppercase tracking-widest">Auto Sync</span>
         </div>
       )}
-
-      {/* Notifications Portal */}
       <div className="fixed top-16 right-4 z-[7000] flex flex-col gap-2 w-full max-w-[280px]">
          {notifications.map(n => (
            <div key={n.id} className={`p-4 rounded-2xl shadow-2xl border-l-4 animate-fade-in ${isDarkMode ? 'bg-[#1e293b] border-indigo-500 text-white' : 'bg-white border-indigo-500 text-slate-800 shadow-indigo-900/10'}`}>
@@ -314,49 +311,15 @@ const App: React.FC = () => {
            </div>
          ))}
       </div>
-
-      <Sidebar 
-        role={currentUser.role} 
-        activeTab={activeTab} 
-        setActiveTab={updateViewedStamp} 
-        onLogout={() => { setCurrentUser(null); storage.clear(DB_KEYS.USER); }} 
-        userName={currentUser.name} 
-        isDarkMode={isDarkMode} 
-        toggleTheme={() => setIsDarkMode(!isDarkMode)} 
-        unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} 
-        currentLang={currentLang} 
-        toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} 
-        isOpen={isSidebarOpen} 
-        onClose={() => setIsSidebarOpen(false)}
-        branding={schoolBranding}
-        onUpdateBranding={updateSchoolBranding}
-        permissions={permissions}
-        onSync={syncAll}
-        isSyncing={isSyncing}
-      />
-      
+      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={() => { setCurrentUser(null); storage.clear(DB_KEYS.USER); }} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} permissions={permissions} onSync={syncAll} isSyncing={isSyncing} />
       <main className="flex-1 overflow-y-auto mobile-scroll relative z-10 custom-scrollbar p-4 md:p-12">
         <div className="max-w-7xl mx-auto pb-24 md:pb-10">{renderContent()}</div>
       </main>
-
-      {/* Mobile Bottom Navigation Bar */}
       <div className={`md:hidden fixed bottom-0 left-0 right-0 z-[4000] flex items-center justify-around px-4 py-3 border-t backdrop-blur-xl ${isDarkMode ? 'bg-[#0a0a0c]/90 border-white/5' : 'bg-white/90 border-slate-100 shadow-up'}`}>
-        <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'dashboard' ? 'text-indigo-50' : 'text-slate-400'}`}>
-           <i className="fa-solid fa-house-chimney text-lg"></i>
-           <span className="text-[9px] font-black uppercase">Home</span>
-        </button>
-        <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'attendance' ? 'text-indigo-50' : 'text-slate-400'}`}>
-           <i className="fa-solid fa-calendar-check text-lg"></i>
-           <span className="text-[9px] font-black uppercase">Attend</span>
-        </button>
-        <button onClick={() => setActiveTab('students')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'students' ? 'text-indigo-50' : 'text-slate-400'}`}>
-           <i className="fa-solid fa-user-plus text-lg"></i>
-           <span className="text-[9px] font-black uppercase">Students</span>
-        </button>
-        <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 flex-1 text-slate-400">
-           <i className="fa-solid fa-ellipsis text-lg"></i>
-           <span className="text-[9px] font-black uppercase">Menu</span>
-        </button>
+        <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'dashboard' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-house-chimney text-lg"></i><span className="text-[9px] font-black uppercase">Home</span></button>
+        <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'attendance' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-calendar-check text-lg"></i><span className="text-[9px] font-black uppercase">Attend</span></button>
+        <button onClick={() => setActiveTab('students')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'students' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-user-plus text-lg"></i><span className="text-[9px] font-black uppercase">Students</span></button>
+        <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 flex-1 text-slate-400"><i className="fa-solid fa-ellipsis text-lg"></i><span className="text-[9px] font-black uppercase">Menu</span></button>
       </div>
     </div>
   );

@@ -6,13 +6,15 @@ interface CurriculumManagerProps {
   user: User;
   curriculum: CurriculumItem[];
   onUpdateCurriculum: (items: CurriculumItem[]) => void;
+  onDeleteCurriculum: (id: string) => Promise<void>;
   onLogActivity: (actionType: 'CREATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
 
-const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum, onUpdateCurriculum, onLogActivity }) => {
+const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum, onUpdateCurriculum, onDeleteCurriculum, onLogActivity }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedGrade, setSelectedGrade] = useState('All');
   const [itemToDelete, setItemToDelete] = useState<CurriculumItem | null>(null);
+  const [isSyncError, setIsSyncError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<Partial<CurriculumItem>>({
@@ -50,30 +52,44 @@ const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum,
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.fileData) return alert("Please upload a PDF or Photo first!");
 
     const newItem: CurriculumItem = {
-      id: Math.random().toString(36).substr(2, 9),
+      // Use numeric string to be safer with BigInt or Text columns
+      id: Date.now().toString(),
       date: new Date().toLocaleDateString(),
       ...(formData as CurriculumItem)
     };
-    onUpdateCurriculum([...curriculum, newItem]);
-    onLogActivity('CREATE', 'Curriculum Master', newItem.title, `Uploaded syllabus for Class ${newItem.grade} (${newItem.subject})`);
-    resetForm();
+    
+    try {
+      setIsSyncError(false);
+      await onUpdateCurriculum([...curriculum, newItem]);
+      onLogActivity('CREATE', 'Curriculum Master', newItem.title, `Uploaded syllabus for Class ${newItem.grade} (${newItem.subject})`);
+      resetForm();
+    } catch (err) {
+      setIsSyncError(true);
+      console.error("Curriculum Save Failed:", err);
+    }
   };
 
   const resetForm = () => {
     setIsAdding(false);
+    setIsSyncError(false);
     setFormData({ grade: '', subject: '', title: '', fileData: '', fileType: '', fileName: '' });
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (itemToDelete) {
-      onUpdateCurriculum(curriculum.filter(item => item.id !== itemToDelete.id));
-      onLogActivity('DELETE', 'Curriculum Master', itemToDelete.title, `Permanently removed curriculum file for Class ${itemToDelete.grade}.`);
-      setItemToDelete(null);
+      try {
+        await onDeleteCurriculum(itemToDelete.id);
+        onLogActivity('DELETE', 'Curriculum Master', itemToDelete.title, `Permanently removed curriculum file for Class ${itemToDelete.grade}.`);
+        setItemToDelete(null);
+      } catch (err) {
+        console.error("Delete failed:", err);
+        alert("Delete operation failed. Please try again.");
+      }
     }
   };
 
@@ -119,6 +135,17 @@ const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum,
            )}
         </div>
       </header>
+
+      {isSyncError && (
+        <div className="p-5 bg-rose-50 border-2 border-rose-200 rounded-[2rem] flex items-center gap-4 text-rose-600 animate-shake">
+           <i className="fa-solid fa-triangle-exclamation text-xl"></i>
+           <div className="flex-1">
+              <p className="font-black text-xs uppercase tracking-widest">Database Sync Failure</p>
+              <p className="text-[10px] font-bold opacity-80">Invalid ID type or Policy violation. Ensure 'curriculum' table in Supabase has 'id' as TEXT and RLS policies are active.</p>
+           </div>
+           <button onClick={() => setIsSyncError(false)} className="text-rose-400 hover:text-rose-600"><i className="fa-solid fa-times"></i></button>
+        </div>
+      )}
 
       {isAdding && (
         <form onSubmit={handleSave} className="bg-white p-8 rounded-[3rem] shadow-2xl border-4 border-violet-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-slide-up">
@@ -283,7 +310,7 @@ const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum,
       {itemToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-indigo-950/40 backdrop-blur-md animate-fade-in" onClick={() => setItemToDelete(null)}></div>
-           <div className="bg-white rounded-[3rem] p-10 max-w-md w-full relative z-10 shadow-2xl border-t-[10px] border-rose-500 animate-slide-up text-center">
+           <div className="bg-white rounded-[3rem] p-10 max-w-md w-full relative z-10 shadow-2xl border-t-[15px] border-rose-500 animate-slide-up text-center">
               <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">
                  <i className="fa-solid fa-circle-exclamation"></i>
               </div>
@@ -317,17 +344,14 @@ const CurriculumManager: React.FC<CurriculumManagerProps> = ({ user, curriculum,
         .animate-slide-up {
           animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
+        @keyframes shake { 
+          0%, 100% { transform: translateX(0); } 
+          20% { transform: translateX(-8px); } 
+          40% { transform: translateX(8px); } 
+          60% { transform: translateX(-8px); } 
+          80% { transform: translateX(8px); } 
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #f1f5f9;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #ddd6fe;
-          border-radius: 10px;
-        }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
       `}</style>
     </div>
   );

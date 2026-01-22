@@ -55,7 +55,6 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
   const [studentToDelete, setStudentToDelete] = useState<{id: string, name: string} | null>(null);
   const [studentToCancel, setStudentToCancel] = useState<{id: string, name: string} | null>(null);
   const [cancelReason, setCancelReason] = useState('');
-  const [statusUpdateModal, setStatusUpdateModal] = useState<{id: string, name: string, current: string} | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +144,28 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
     resetForm();
   };
 
+  const handleCancelStudent = () => {
+    if (!studentToCancel || !cancelReason.trim()) return;
+
+    const updatedStudents = students.map(s => {
+      if (s.id === studentToCancel.id) {
+        return {
+          ...s,
+          status: 'CANCELLED',
+          cancelledDate: new Date().toLocaleString(),
+          cancelledBy: user.name,
+          cancelReason: cancelReason.trim()
+        } as Student;
+      }
+      return s;
+    });
+
+    setStudents(updatedStudents);
+    onLogActivity('UPDATE', 'Student Registry', studentToCancel.name, `Membership cancelled. Reason: ${cancelReason}`);
+    setStudentToCancel(null);
+    setCancelReason('');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (currentStep < 5) {
@@ -178,12 +199,12 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
         <div key={step} className="flex items-center flex-1 last:flex-none">
           <div className={`w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl flex items-center justify-center font-black text-[10px] md:text-xs transition-all shadow-lg shrink-0 ${
             currentStep === step ? 'bg-teal-600 text-white scale-110 ring-4 ring-teal-100' : 
-            currentStep > step ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'
+            currentStep > step ? 'bg-emerald-50 text-white' : 'bg-gray-100 text-gray-400'
           }`}>
             {currentStep > step ? <i className="fa-solid fa-check"></i> : step}
           </div>
           {step < 5 && (
-            <div className={`h-1 flex-1 mx-1 md:mx-2 rounded-full transition-all ${currentStep > step ? 'bg-emerald-500' : 'bg-gray-100'}`}></div>
+            <div className={`h-1 flex-1 mx-1 md:mx-2 rounded-full transition-all ${currentStep > step ? 'bg-emerald-50' : 'bg-gray-100'}`}></div>
           )}
         </div>
       ))}
@@ -421,6 +442,9 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
                     </td>
                     <td className="px-10 py-6 text-right">
                        <button onClick={() => startEdit(s)} className="p-2 text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"><i className="fa-solid fa-pen-nib"></i></button>
+                       {isAdmin && (
+                         <button onClick={() => setStudentToCancel({id: s.id, name: s.name})} className="p-2 text-slate-400 hover:text-rose-500 rounded-lg transition-colors ml-2" title="Cancel Admission"><i className="fa-solid fa-user-slash"></i></button>
+                       )}
                        <button onClick={() => setStudentToDelete({id: s.id, name: s.name})} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors ml-2"><i className="fa-solid fa-trash-can"></i></button>
                     </td>
                   </tr>
@@ -429,6 +453,43 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
            </table>
         </div>
       </div>
+
+      {/* Cancellation Reason Modal */}
+      {studentToCancel && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6">
+           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl animate-fade-in" onClick={() => setStudentToCancel(null)}></div>
+           <div className="bg-white rounded-[3.5rem] p-12 max-w-md w-full relative z-10 shadow-2xl border-t-[15px] border-rose-500 animate-scale-in">
+              <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner">
+                 <i className="fa-solid fa-user-slash"></i>
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter mb-2 text-center">Cancel Admission</h2>
+              <p className="text-xs font-bold text-gray-400 text-center mb-8">Cancelling: <span className="text-rose-600">{studentToCancel.name}</span></p>
+              
+              <div className="space-y-4">
+                 <div className="space-y-1">
+                    <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest ml-1">Cancellation Reason</label>
+                    <textarea 
+                       required
+                       className="w-full px-6 py-4 rounded-2xl bg-gray-50 border-2 border-transparent focus:bg-white focus:border-rose-400 outline-none font-bold text-slate-800 h-32 transition-all shadow-inner"
+                       placeholder="Enter formal reason for cancellation..."
+                       value={cancelReason}
+                       onChange={e => setCancelReason(e.target.value)}
+                    />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4 pt-4">
+                    <button onClick={() => setStudentToCancel(null)} className="py-4 bg-gray-100 text-gray-500 rounded-2xl font-black uppercase text-[10px] tracking-widest">Abort</button>
+                    <button 
+                       onClick={handleCancelStudent}
+                       disabled={!cancelReason.trim()}
+                       className="py-4 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl disabled:opacity-50"
+                    >
+                       Confirm Cancel
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {studentToDelete && (

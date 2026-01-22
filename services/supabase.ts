@@ -15,7 +15,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 /**
  * Converts object keys to snake_case and filters out null/undefined values.
  */
-const toSnakeCase = (obj: any, allowedKeys?: string[]) => {
+const toSnakeCase = (obj: any, allowedColumns?: string[]) => {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
   const result: any = {};
   for (const key in obj) {
@@ -24,8 +24,8 @@ const toSnakeCase = (obj: any, allowedKeys?: string[]) => {
       
       const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
       
-      // If allowedKeys is provided, only include keys that are in the list
-      if (allowedKeys && !allowedKeys.includes(snakeKey)) continue;
+      // If allowedColumns is provided, only include keys that are in the list
+      if (allowedColumns && !allowedColumns.includes(snakeKey)) continue;
       
       result[snakeKey] = obj[key];
     }
@@ -50,8 +50,7 @@ const toCamelCase = (obj: any) => {
 const isTableNotFoundError = (error: any) => {
   if (!error) return false;
   return error.code === '42P01' || 
-         (error.message && error.message.includes('Could not find the table')) ||
-         (error.message && error.message.includes('does not exist'));
+         (error.message && (error.message.includes('Could not find the table') || error.message.includes('does not exist')));
 };
 
 export const dbService = {
@@ -61,7 +60,7 @@ export const dbService = {
       
       if (error) {
         if (isTableNotFoundError(error)) {
-          console.info(`Supabase Sync: Table [${table}] not found. Using local data.`);
+          console.warn(`Supabase: Table [${table}] missing.`);
           return [];
         }
         throw error;
@@ -84,9 +83,7 @@ export const dbService = {
       
       return (data || []).map(item => toCamelCase(item));
     } catch (err: any) {
-      if (!isTableNotFoundError(err)) {
-        console.error(`Fetch All Failure [${table}]:`, err.message);
-      }
+      console.error(`Fetch All Failure [${table}]:`, err.message);
       return [];
     }
   },
@@ -94,28 +91,29 @@ export const dbService = {
   async upsert(table: string, payload: any) {
     try {
       let dataToPush: any;
-      let allowedColumns: string[] | undefined = undefined;
+      let columns: string[] | undefined = undefined;
 
-      // Schema mapping for consistency and explicit column handling
+      // Schema mapping for specific tables
       if (table === 'students') {
-        allowedColumns = ['id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender', 'blood_group', 'aadhar_no', 'photo', 'grade', 'section', 'medium', 'father_name', 'mother_name', 'guardian_name', 'father_occupation', 'phone', 'alternate_phone', 'email', 'address', 'city', 'state', 'pincode', 'permanent_address', 'prev_school_name', 'prev_last_class', 'tc_no', 'total_fees', 'paid_fees', 'status', 'academic_year', 'admission_date', 'parent_name', 'emergency_contact', 'emergency_contact_name'];
+        columns = ['id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender', 'blood_group', 'aadhar_no', 'photo', 'grade', 'section', 'medium', 'father_name', 'mother_name', 'guardian_name', 'father_occupation', 'phone', 'alternate_phone', 'email', 'address', 'city', 'state', 'pincode', 'permanent_address', 'prev_school_name', 'prev_last_class', 'tc_no', 'total_fees', 'paid_fees', 'status', 'academic_year', 'admission_date', 'parent_name', 'emergency_contact', 'emergency_contact_name'];
       } else if (table === 'teachers') {
-        allowedColumns = ['id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group', 'aadhar_no', 'photo', 'phone', 'email', 'address', 'permanent_address', 'designation', 'subject', 'joining_date', 'employment_type', 'experience', 'qualification', 'professional_degree', 'university', 'passing_year', 'assigned_grades', 'assigned_sections', 'is_class_teacher', 'salary_type', 'basic_salary', 'bank_name', 'account_no', 'ifsc_code', 'status'];
+        columns = ['id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group', 'aadhar_no', 'photo', 'phone', 'email', 'address', 'permanent_address', 'designation', 'subject', 'joining_date', 'employment_type', 'experience', 'qualification', 'professional_degree', 'university', 'passing_year', 'assigned_grades', 'assigned_sections', 'is_class_teacher', 'salary_type', 'basic_salary', 'bank_name', 'account_no', 'ifsc_code', 'status'];
       } else if (table === 'curriculum') {
-        // Explicitly defining columns for curriculum to ensure file data maps correctly
-        allowedColumns = ['id', 'grade', 'subject', 'title', 'file_data', 'file_type', 'file_name', 'date'];
+        columns = ['id', 'grade', 'subject', 'title', 'file_data', 'file_type', 'file_name', 'date'];
+      } else if (table === 'activities') {
+        columns = ['id', 'admin_name', 'action_type', 'module', 'target', 'timestamp', 'details'];
       }
 
       if (table === 'subject_list') {
         dataToPush = { id: 'current_subjects', list: payload };
       } else if (table === 'school_branding') {
-        dataToPush = { ...toSnakeCase(payload, allowedColumns), id: 'active_brand' };
+        dataToPush = { ...toSnakeCase(payload, columns), id: 'active_brand' };
       } else if (table === 'access_permissions') {
         dataToPush = { id: 1, data: payload };
       } else if (Array.isArray(payload)) {
-        dataToPush = payload.map(item => toSnakeCase(item, allowedColumns));
+        dataToPush = payload.map(item => toSnakeCase(item, columns));
       } else {
-        dataToPush = toSnakeCase(payload, allowedColumns);
+        dataToPush = toSnakeCase(payload, columns);
       }
       
       let onConflict = 'id';
@@ -129,9 +127,10 @@ export const dbService = {
       });
       
       if (error) {
-        if (isTableNotFoundError(error)) {
-           console.warn(`Supabase Push: Table [${table}] missing. Auto-save to local cache instead.`);
-           return false;
+        if (error.code === '42501') {
+           console.error(`🚨 RLS POLICY ERROR: Please run the SQL Policy query for table [${table}] in Supabase.`);
+        } else if (error.code === '22P02') {
+           console.error(`🚨 DATA TYPE ERROR: Table [${table}] ID might be set to 'bigint'. Please change it to 'text' in Supabase.`);
         }
         throw error;
       }
@@ -148,11 +147,14 @@ export const dbService = {
       if (table === 'food_chart') pk = 'day';
       if (table === 'fee_structures') pk = 'grade';
       
-      const { error } = await supabase.from(table).delete().eq(pk, id);
-      if (error) {
-        if (isTableNotFoundError(error)) return true;
-        throw error;
+      if (id === 'all') {
+        const { error } = await supabase.from(table).delete().neq(pk, '0');
+        if (error) throw error;
+        return true;
       }
+
+      const { error } = await supabase.from(table).delete().eq(pk, id);
+      if (error) throw error;
       return true;
     } catch (err: any) {
       console.error(`Supabase Delete Failure [${table}]:`, err.message);

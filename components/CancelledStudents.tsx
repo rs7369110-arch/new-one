@@ -70,7 +70,7 @@ const CancelledStudents: React.FC<CancelledStudentsProps> = ({ user, students, o
               <tr className="bg-rose-50/20 text-[10px] font-black text-rose-400 uppercase tracking-widest">
                 <th className="px-10 py-6">Hero Profile</th>
                 <th className="px-10 py-6">Cancellation Log</th>
-                <th className="px-10 py-6">Reason</th>
+                <th className="px-10 py-6">Reason for Removal</th>
                 <th className="px-10 py-6 text-right">Actions</th>
               </tr>
             </thead>
@@ -90,14 +90,22 @@ const CancelledStudents: React.FC<CancelledStudentsProps> = ({ user, students, o
                   </td>
                   <td className="px-10 py-6">
                      <div className="space-y-1">
-                        <p className="text-xs font-black text-gray-700">Date: {s.cancelledDate || 'N/A'}</p>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase">By: {s.cancelledBy || 'System'}</p>
+                        <div className="flex items-center gap-2">
+                           <i className="fa-solid fa-clock text-[10px] text-rose-300"></i>
+                           <p className="text-xs font-black text-gray-700">{s.cancelledDate || 'N/A'}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <i className="fa-solid fa-user-shield text-[10px] text-rose-300"></i>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase">By: {s.cancelledBy || 'System'}</p>
+                        </div>
                      </div>
                   </td>
                   <td className="px-10 py-6">
-                     <p className="text-xs font-bold text-gray-600 italic leading-relaxed max-w-xs truncate">
-                        "{s.cancelReason || 'No specific reason recorded.'}"
-                     </p>
+                     <div className="p-4 bg-rose-50/50 rounded-2xl border border-rose-100 border-l-4 border-l-rose-500 max-w-xs group-hover:bg-white transition-colors">
+                        <p className="text-xs font-bold text-gray-600 italic leading-relaxed">
+                           "{s.cancelReason || 'No specific reason recorded in registry.'}"
+                        </p>
+                     </div>
                   </td>
                   <td className="px-10 py-6 text-right">
                     <button 
