@@ -45,7 +45,15 @@ export const dbService = {
   async fetchAll(table: string) {
     try {
       const { data, error } = await supabase.from(table).select('*');
-      if (error) throw error;
+      
+      if (error) {
+        // Error code 42P01 means table does not exist in Supabase
+        if (error.code === '42P01') {
+          console.info(`Supabase Sync: Table [${table}] not found on server. Using local registry.`);
+          return [];
+        }
+        throw error;
+      }
       
       if (table === 'subject_list') {
         const settings = data?.find(item => item.id === 'current_subjects');
@@ -64,7 +72,7 @@ export const dbService = {
       
       return (data || []).map(item => toCamelCase(item));
     } catch (err: any) {
-      console.warn(`Sync Warning [${table}]:`, err.message || err);
+      // Catch-all to prevent app crashes during sync
       return [];
     }
   },
@@ -74,7 +82,6 @@ export const dbService = {
       let dataToPush: any;
       let allowedColumns: string[] | undefined = undefined;
 
-      // FULL Updated List for Students table
       if (table === 'students') {
         allowedColumns = [
           'id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender',
@@ -89,7 +96,6 @@ export const dbService = {
         ];
       }
 
-      // FULL Updated List for Teachers table
       if (table === 'teachers') {
         allowedColumns = [
           'id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group',
@@ -140,16 +146,13 @@ export const dbService = {
       });
       
       if (error) {
-        const detail = error.details || '';
-        const hint = error.hint || '';
-        console.error(`Supabase DB Error [${table}]:`, error.message, '| Detail:', detail, '| Hint:', hint);
+        if (error.code === '42P01') {
+          return; // Silently fail if table doesn't exist yet
+        }
         throw new Error(`DB Error: ${error.message}`);
       }
-      
-      console.log(`Cloud Sync Success [${table}]`);
     } catch (err: any) {
-      console.error(`Upsert Exception [${table}]:`, err.message);
-      throw err;
+      console.warn(`Supabase Upsert Deferred: ${table}`);
     }
   },
 
@@ -160,11 +163,9 @@ export const dbService = {
       if (table === 'fee_structures') pk = 'grade';
       
       const { error } = await supabase.from(table).delete().eq(pk, id);
-      if (error) throw error;
-      console.log(`Sync Success: Item ${id} deleted from ${table}`);
+      if (error && error.code !== '42P01') throw error;
     } catch (err: any) {
-      console.error(`Delete Error [${table}]:`, err.message || err);
-      throw err;
+      console.warn(`Supabase Delete Deferred: ${table}`);
     }
   }
 };

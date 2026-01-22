@@ -10,7 +10,7 @@ interface ICardGeneratorProps {
   branding: SchoolBranding;
 }
 
-const ID_SETTINGS_KEY = 'edu_id_card_custom_settings_v3';
+const ID_SETTINGS_KEY = 'edu_id_card_custom_settings_v4';
 
 interface ElementLayout {
   x: number;
@@ -26,7 +26,7 @@ interface IDLayoutConfig {
   tagline: ElementLayout;
   photo: ElementLayout;
   studentName: ElementLayout;
-  metaData: ElementLayout; // Grade & Roll
+  metaData: ElementLayout;
   parentName: ElementLayout;
   phone: ElementLayout;
   address: ElementLayout;
@@ -95,7 +95,6 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
     }));
   }, [branding]);
 
-  const [overrides, setOverrides] = useState<Partial<Student>>({});
   const isAdmin = user.role === UserRole.ADMIN;
 
   const displayStudents = useMemo(() => {
@@ -105,10 +104,6 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
     const single = students.find(s => s.id === selectedId);
     return single ? [single] : [];
   }, [students, selectedGrade, selectedId]);
-
-  useEffect(() => {
-    setOverrides({});
-  }, [selectedId, selectedGrade]);
 
   const updateSettings = (updates: Partial<IDSettings>) => {
     const newSettings = { ...settings, ...updates };
@@ -143,11 +138,11 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
     
     setIsDownloading(true);
     const fileName = selectedGrade 
-      ? `Class_${selectedGrade}_ID_Cards.pdf` 
+      ? `Class_${selectedGrade}_ID_Batch.pdf` 
       : `${displayStudents[0].name.replace(/\s+/g, '_')}_ID.pdf`;
 
     const opt = {
-      margin: [10, 10, 10, 10],
+      margin: [5, 5, 5, 5],
       filename: fileName,
       image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
@@ -200,9 +195,8 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
     </div>
   );
 
-  // Individual Card Component to reuse in bulk view
   const CardFace = ({ student }: { student: Student }) => (
-    <div className="w-[360px] h-[580px] bg-white rounded-[3rem] shadow-[0_40px_80px_-15px_rgba(0,0,0,0.2)] overflow-hidden relative border-2 border-indigo-50 flex flex-col shrink-0 mb-10 break-inside-avoid">
+    <div className="w-[360px] h-[580px] bg-white rounded-[3rem] shadow-2xl overflow-hidden relative border-2 border-indigo-50 flex flex-col shrink-0 mb-10 break-inside-avoid">
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
           <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
             <defs><pattern id="id-grid-master" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke={settings.themeColor} strokeWidth="0.5"/></pattern></defs>
@@ -257,7 +251,7 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
           </div>
           <div className="text-right flex flex-col items-end cursor-pointer hover:bg-white rounded p-1" style={getTransform('signature')} onClick={() => isEditMode && setSelectedElement('signature')}>
             {settings.signature ? <img src={settings.signature} className="h-12 mix-blend-multiply" alt="Seal" /> : <div className="h-1 w-24 bg-gray-200 mb-1"></div>}
-            <p className="text-[8px] font-black text-indigo-900 uppercase tracking-widest">Principal Authorization</p>
+            <p className="text-[8px] font-black text-indigo-900 uppercase tracking-widest">Principal Seal</p>
           </div>
       </div>
     </div>
@@ -273,7 +267,7 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
            </div>
            <div>
              <h1 className="text-4xl font-black tracking-tighter uppercase leading-none">Identity Studio</h1>
-             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.6em] mt-3 italic opacity-80">Full-Detail Credential Engine v4.0</p>
+             <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.6em] mt-3 italic opacity-80">Bulk Generation Engine v4.5</p>
            </div>
         </div>
 
@@ -284,7 +278,7 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
               className={`px-10 py-4 rounded-[1.8rem] font-black shadow-xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 ${isEditMode ? 'bg-amber-400 text-amber-950' : 'bg-white/10 text-white border border-white/10'}`}
             >
               <i className={`fa-solid ${isEditMode ? 'fa-circle-check' : 'fa-wand-magic-sparkles'}`}></i>
-              {isEditMode ? 'Save Layout' : 'Design Mode'}
+              {isEditMode ? 'Save Blueprint' : 'Design Mode'}
             </button>
           )}
           {displayStudents.length > 0 && (
@@ -294,7 +288,7 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
               className="px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-[1.8rem] font-black shadow-xl transition-all flex items-center gap-3 transform hover:scale-105 active:scale-95 disabled:opacity-50"
             >
               <i className={`fa-solid ${isDownloading ? 'fa-spinner fa-spin' : 'fa-file-pdf'} text-xl`}></i>
-              {isDownloading ? 'Generating Batch...' : displayStudents.length > 1 ? `Export ${displayStudents.length} IDs` : 'Export ID'}
+              {isDownloading ? 'Exporting...' : displayStudents.length > 1 ? `Export ${displayStudents.length} IDs` : 'Export Card'}
             </button>
           )}
         </div>
@@ -302,18 +296,18 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* DESIGN CONTROLS SIDEBAR */}
+        {/* SIDEBAR: SELECTION & LAYOUT */}
         <div className="lg:col-span-4 space-y-6">
           <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-indigo-50 space-y-6">
             <div>
-              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Select by Grade</h3>
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Batch Selection</h3>
               <select 
                 className="w-full px-6 py-4 rounded-2xl bg-indigo-50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-bold text-indigo-900 shadow-inner appearance-none transition-all"
                 value={selectedGrade}
                 onChange={(e) => { setSelectedGrade(e.target.value); setSelectedId(''); }}
               >
-                <option value="">Bulk Mode: Choose Class...</option>
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n.toString()}>Grade {n} Heroes</option>)}
+                <option value="">Choose a Class...</option>
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n.toString()}>Grade {n} Registry</option>)}
               </select>
             </div>
 
@@ -323,13 +317,13 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
             </div>
 
             <div>
-              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Select Individually</h3>
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Individual Look</h3>
               <select 
                 className="w-full px-6 py-4 rounded-2xl bg-indigo-50 border-2 border-transparent focus:bg-white focus:border-indigo-400 outline-none font-bold text-indigo-900 shadow-inner appearance-none transition-all"
                 value={selectedId}
                 onChange={(e) => { setSelectedId(e.target.value); setSelectedGrade(''); }}
               >
-                <option value="">Single Mode: Choose Student...</option>
+                <option value="">Choose Student...</option>
                 {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.admissionNo})</option>)}
               </select>
             </div>
@@ -338,29 +332,29 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
           {isEditMode && isAdmin && (
             <div className="bg-white rounded-[3rem] shadow-xl border border-indigo-50 overflow-hidden animate-slide-up sticky top-6">
               <div className="flex bg-gray-50 border-b border-indigo-50 p-2">
-                 <button onClick={() => setActiveTab('IDENTITY')} className={`flex-1 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'IDENTITY' ? 'bg-indigo-600 text-white' : 'text-gray-400'}`}>Identity</button>
-                 <button onClick={() => setActiveTab('LAYOUT')} className={`flex-1 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'LAYOUT' ? 'bg-indigo-600 text-white' : 'text-gray-400'}`}>Layout</button>
+                 <button onClick={() => setActiveTab('IDENTITY')} className={`flex-1 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'IDENTITY' ? 'bg-indigo-600 text-white' : 'text-gray-400'}`}>Visuals</button>
+                 <button onClick={() => setActiveTab('LAYOUT')} className={`flex-1 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'LAYOUT' ? 'bg-indigo-600 text-white' : 'text-gray-400'}`}>Pillars</button>
               </div>
 
               <div className="p-8 space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
                 {activeTab === 'IDENTITY' ? (
                   <div className="space-y-6">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Card Accent Color</label>
+                      <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Accent Theme</label>
                       <div className="flex gap-2">
                         <input type="color" className="w-12 h-12 rounded-xl border-none cursor-pointer p-0" value={settings.themeColor} onChange={e => updateSettings({ themeColor: e.target.value })} />
                         <input className="flex-1 px-5 py-3 bg-gray-50 rounded-xl font-bold border-2 border-transparent focus:border-indigo-400 outline-none uppercase" value={settings.themeColor} onChange={e => updateSettings({ themeColor: e.target.value })} />
                       </div>
                     </div>
                     <div className="space-y-4 pt-4 border-t border-indigo-50">
-                       <button onClick={() => document.getElementById('sign-upload-id')?.click()} className="w-full py-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all border-2 border-dashed border-emerald-100">Upload Registry Seal</button>
-                       <input id="sign-upload-id" type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload('signature', e)} />
+                       <button onClick={() => document.getElementById('seal-upload')?.click()} className="w-full py-4 bg-emerald-50 text-emerald-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all border-2 border-dashed border-emerald-100">Upload Registry Seal</button>
+                       <input id="seal-upload" type="file" className="hidden" accept="image/*" onChange={e => handleFileUpload('signature', e)} />
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-6">
                     <div className="space-y-3">
-                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Select Component</label>
+                       <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Target Element</label>
                        <select 
                          className="w-full px-5 py-3 bg-indigo-50 rounded-xl font-black text-xs text-indigo-900 outline-none"
                          value={selectedElement || ''}
@@ -373,14 +367,14 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
 
                     {selectedElement ? (
                       <div className="space-y-6 p-6 bg-indigo-50/50 rounded-3xl animate-scale-in">
-                        <LayoutSlider label="Horizontal (X)" value={settings.layout[selectedElement].x} min={-150} max={150} onChange={(v: number) => updateElement(selectedElement, { x: v })} />
+                        <LayoutSlider label="Horizontal (X)" value={settings.layout[selectedElement].x} min={-180} max={180} onChange={(v: number) => updateElement(selectedElement, { x: v })} />
                         <LayoutSlider label="Vertical (Y)" value={settings.layout[selectedElement].y} min={-350} max={350} onChange={(v: number) => updateElement(selectedElement, { y: v })} />
-                        <LayoutSlider label="Scale" value={settings.layout[selectedElement].scale} min={0.1} max={3} onChange={(v: number) => updateElement(selectedElement, { scale: v })} />
+                        <LayoutSlider label="Scale" value={settings.layout[selectedElement].scale} min={0.1} max={4} onChange={(v: number) => updateElement(selectedElement, { scale: v })} />
                         {settings.layout[selectedElement].fontSize !== undefined && (
-                          <LayoutSlider label="Font Size" value={settings.layout[selectedElement].fontSize} min={6} max={48} onChange={(v: number) => updateElement(selectedElement, { fontSize: v })} />
+                          <LayoutSlider label="Font Size" value={settings.layout[selectedElement].fontSize} min={6} max={56} onChange={(v: number) => updateElement(selectedElement, { fontSize: v })} />
                         )}
                         <div className="flex items-center justify-between pt-4 border-t border-indigo-100">
-                           <span className="text-[9px] font-black text-gray-400 uppercase">Visibility</span>
+                           <span className="text-[9px] font-black text-gray-400 uppercase">Visible</span>
                            <button onClick={() => updateElement(selectedElement, { visible: !settings.layout[selectedElement].visible })} className={`w-12 h-6 rounded-full relative transition-all ${settings.layout[selectedElement].visible ? 'bg-emerald-500' : 'bg-gray-300'}`}>
                               <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${settings.layout[selectedElement].visible ? 'right-1' : 'left-1'}`}></div>
                            </button>
@@ -388,11 +382,11 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
                       </div>
                     ) : (
                       <div className="p-10 text-center opacity-30 border-2 border-dashed border-indigo-100 rounded-3xl">
-                        <p className="text-[10px] font-black uppercase tracking-widest">Select element to move</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest">Select element on card to design</p>
                       </div>
                     )}
                     
-                    <button onClick={() => updateSettings({ layout: DEFAULT_LAYOUT })} className="w-full py-4 bg-rose-50 text-rose-500 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all">Reset Blueprint</button>
+                    <button onClick={() => updateSettings({ layout: DEFAULT_LAYOUT })} className="w-full py-4 bg-rose-50 text-rose-500 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all">Reset To Master Blueprint</button>
                   </div>
                 )}
               </div>
@@ -400,15 +394,14 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
           )}
         </div>
 
-        {/* MASTER PREVIEW AREA (BULK SUPPORT) */}
-        <div className="lg:col-span-8 flex flex-col items-center py-12 bg-gray-100/50 rounded-[4.5rem] border-4 border-dashed border-gray-200 relative overflow-hidden min-h-[800px]">
+        {/* INTERACTIVE WORKSPACE */}
+        <div className="lg:col-span-8 flex flex-col items-center py-12 bg-gray-100/50 rounded-[4.5rem] border-4 border-dashed border-gray-200 relative overflow-hidden min-h-[850px]">
           {displayStudents.length > 0 ? (
-            <div id="id-card-printable-container" className="flex flex-col items-center p-10 bg-transparent animate-slide-up w-full max-h-[80vh] overflow-y-auto custom-scrollbar">
+            <div id="id-card-printable-container" className="flex flex-col items-center p-10 bg-transparent animate-slide-up w-full max-h-[85vh] overflow-y-auto custom-scrollbar">
               <div id="id-card-printable" className="flex flex-col items-center w-full">
                 {displayStudents.map((s, idx) => (
                    <React.Fragment key={s.id}>
                       <CardFace student={s} />
-                      {/* PDF Page Break for bulk export */}
                       {idx < displayStudents.length - 1 && <div className="html2pdf__page-break"></div>}
                    </React.Fragment>
                 ))}
@@ -419,18 +412,14 @@ const ICardGenerator: React.FC<ICardGeneratorProps> = ({ students, user, brandin
               <div className="w-40 h-40 bg-white rounded-[4rem] shadow-inner flex items-center justify-center text-indigo-200 text-8xl mx-auto mb-10 ring-8 ring-white animate-pulse">
                 <i className="fa-solid fa-passport"></i>
               </div>
-              <p className="text-4xl font-black text-indigo-900 tracking-tighter uppercase">ID Designer</p>
-              <p className="font-bold text-indigo-400 mt-3 italic max-w-sm mx-auto">Choose a Class or Student to begin the high-fidelity identity pipeline.</p>
+              <p className="text-4xl font-black text-indigo-900 tracking-tighter uppercase">ID Designer Stage</p>
+              <p className="font-bold text-indigo-400 mt-3 italic max-w-sm mx-auto">Choose a Class to generate a batch or a student to design a master template.</p>
             </div>
           )}
         </div>
       </div>
 
       <style>{`
-        @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .animate-scale-in { animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.1); border-radius: 10px; }
         @media print {
