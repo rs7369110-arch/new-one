@@ -92,6 +92,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Logo size must be less than 2MB");
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setBrandForm({ ...brandForm, logo: reader.result as string });
@@ -117,11 +121,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const handleSaveEditedNotice = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editNotice || !onUpdateNotices) return;
-    const confirmed = window.confirm(`CONFIRM UPDATE: Save the modifications made to "${editNotice.title}"?`);
-    if (confirmed) {
-      onUpdateNotices(notices.map(n => n.id === editNotice.id ? editNotice : n));
-      setEditNotice(null);
-    }
+    onUpdateNotices(notices.map(n => n.id === editNotice.id ? editNotice : n));
+    setEditNotice(null);
   };
 
   const myChild = useMemo(() => {
@@ -368,7 +369,110 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
       
-      {/* ... (rest of modals stay same structure but get 3D classes added to buttons in JSX) ... */}
+      {/* BRANDING CONFIGURATION MODAL */}
+      {isBrandingOpen && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6">
+           <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsBrandingOpen(false)}></div>
+           <div className={`w-full max-w-xl rounded-[3rem] p-10 relative z-10 shadow-2xl animate-scale-in border-t-[12px] border-indigo-600 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>
+              <div className="flex justify-between items-start mb-8">
+                 <div>
+                    <h2 className={`text-3xl font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-indigo-950'}`}>Academy Identity</h2>
+                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mt-1">Branding Control Protocol</p>
+                 </div>
+                 <button onClick={() => setIsBrandingOpen(false)} className="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center shadow-inner"><i className="fa-solid fa-xmark"></i></button>
+              </div>
+
+              <form onSubmit={handleSaveBranding} className="space-y-6">
+                 <div className="flex flex-col items-center gap-4 mb-8 p-6 bg-indigo-50/10 rounded-[2.5rem] border border-indigo-500/20">
+                    <div className="w-24 h-24 rounded-[2rem] bg-white shadow-xl overflow-hidden border-4 border-white flex items-center justify-center relative group">
+                       {brandForm.logo ? (
+                         <img src={brandForm.logo} className="w-full h-full object-contain" />
+                       ) : (
+                         <i className="fa-solid fa-camera text-4xl text-indigo-100"></i>
+                       )}
+                       <button type="button" onClick={() => brandLogoRef.current?.click()} className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <i className="fa-solid fa-upload"></i>
+                       </button>
+                    </div>
+                    <input type="file" ref={brandLogoRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
+                    <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Academy Seal (PNG/JPG)</p>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">School Name</label>
+                       <input 
+                         required
+                         className={`w-full px-6 py-4 rounded-2xl border-none outline-none font-bold shadow-inner ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-indigo-900'}`}
+                         value={brandForm.name}
+                         onChange={e => setBrandForm({...brandForm, name: e.target.value})}
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Tagline</label>
+                       <input 
+                         className={`w-full px-6 py-4 rounded-2xl border-none outline-none font-bold shadow-inner ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-indigo-900'}`}
+                         value={brandForm.tagline}
+                         onChange={e => setBrandForm({...brandForm, tagline: e.target.value})}
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Registry Phone</label>
+                       <input 
+                         className={`w-full px-6 py-4 rounded-2xl border-none outline-none font-bold shadow-inner ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-indigo-900'}`}
+                         value={brandForm.phone}
+                         onChange={e => setBrandForm({...brandForm, phone: e.target.value})}
+                       />
+                    </div>
+                    <div className="space-y-2">
+                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Theme Primary</label>
+                       <div className="flex gap-2">
+                          <input type="color" className="w-12 h-14 rounded-xl border-none p-1 cursor-pointer bg-transparent" value={brandForm.themeColor} onChange={e => setBrandForm({...brandForm, themeColor: e.target.value})} />
+                          <input className={`flex-1 px-4 py-4 rounded-2xl border-none outline-none font-bold shadow-inner uppercase ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-indigo-900'}`} value={brandForm.themeColor} onChange={e => setBrandForm({...brandForm, themeColor: e.target.value})} />
+                       </div>
+                    </div>
+                    <div className="md:col-span-2 space-y-2">
+                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">Academy Address</label>
+                       <textarea 
+                         rows={2}
+                         className={`w-full px-6 py-4 rounded-2xl border-none outline-none font-bold shadow-inner ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-indigo-900'}`}
+                         value={brandForm.address}
+                         onChange={e => setBrandForm({...brandForm, address: e.target.value})}
+                       />
+                    </div>
+                 </div>
+
+                 <button type="submit" className="btn-3d-indigo w-full py-5 bg-indigo-600 text-white rounded-[1.8rem] font-black text-xs uppercase tracking-widest shadow-2xl mt-4">
+                    Seal Identity Blueprint
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* EDIT NOTICE MODAL */}
+      {editNotice && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6">
+           <div className="absolute inset-0 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setEditNotice(null)}></div>
+           <div className={`w-full max-w-xl rounded-[3rem] p-10 relative z-10 shadow-2xl animate-scale-in border-t-[12px] border-indigo-600 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-white'}`}>
+              <h2 className={`text-2xl font-black uppercase tracking-tighter mb-8 ${isDarkMode ? 'text-white' : 'text-indigo-950'}`}>Refine Notice</h2>
+              <form onSubmit={handleSaveEditedNotice} className="space-y-6">
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Title</label>
+                    <input required className={`w-full px-6 py-4 rounded-2xl border-none outline-none font-bold shadow-inner ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-indigo-900'}`} value={editNotice.title} onChange={e => setEditNotice({...editNotice, title: e.target.value})} />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Content</label>
+                    <textarea rows={4} required className={`w-full px-6 py-4 rounded-2xl border-none outline-none font-bold shadow-inner ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-indigo-900'}`} value={editNotice.content} onChange={e => setEditNotice({...editNotice, content: e.target.value})} />
+                 </div>
+                 <div className="flex gap-4">
+                    <button type="button" onClick={() => setEditNotice(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black uppercase text-[10px]">Abort</button>
+                    <button type="submit" className="btn-3d-indigo flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px]">Lock Changes</button>
+                 </div>
+              </form>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

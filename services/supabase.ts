@@ -24,7 +24,7 @@ const toSnakeCase = (obj: any, allowedColumns?: string[]) => {
       
       const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
       
-      // If allowedColumns is provided, only include keys that are in the list
+      // Only filter if allowedColumns is explicitly provided
       if (allowedColumns && !allowedColumns.includes(snakeKey)) continue;
       
       result[snakeKey] = obj[key];
@@ -93,17 +93,17 @@ export const dbService = {
       let dataToPush: any;
       let columns: string[] | undefined = undefined;
 
-      // Schema mapping for specific tables
+      // Schema mapping for major tables to ensure data integrity
       if (table === 'students') {
         columns = ['id', 'roll_no', 'admission_no', 'gr_no', 'name', 'dob', 'gender', 'blood_group', 'aadhar_no', 'photo', 'grade', 'section', 'medium', 'father_name', 'mother_name', 'guardian_name', 'father_occupation', 'phone', 'alternate_phone', 'email', 'address', 'city', 'state', 'pincode', 'permanent_address', 'prev_school_name', 'prev_last_class', 'tc_no', 'total_fees', 'paid_fees', 'status', 'academic_year', 'admission_date', 'parent_name', 'emergency_contact', 'emergency_contact_name'];
       } else if (table === 'teachers') {
         columns = ['id', 'employee_id', 'teacher_name', 'gender', 'dob', 'blood_group', 'aadhar_no', 'photo', 'phone', 'email', 'address', 'permanent_address', 'designation', 'subject', 'joining_date', 'employment_type', 'experience', 'qualification', 'professional_degree', 'university', 'passing_year', 'assigned_grades', 'assigned_sections', 'is_class_teacher', 'salary_type', 'basic_salary', 'bank_name', 'account_no', 'ifsc_code', 'status'];
-      } else if (table === 'curriculum') {
-        columns = ['id', 'grade', 'subject', 'title', 'file_data', 'file_type', 'file_name', 'date'];
-      } else if (table === 'activities') {
-        columns = ['id', 'admin_name', 'action_type', 'module', 'target', 'timestamp', 'details'];
-      } else if (table === 'food_chart') {
-        columns = ['day', 'breakfast', 'breakfast_price', 'lunch', 'lunch_price'];
+      } else if (table === 'notices') {
+        columns = ['id', 'title', 'content', 'date', 'category', 'target_grades', 'is_pinned', 'attachment'];
+      } else if (table === 'homework') {
+        columns = ['id', 'subject', 'title', 'description', 'due_date', 'grade', 'attachment'];
+      } else if (table === 'master_timetable') {
+        columns = ['id', 'grade', 'section', 'day', 'period', 'subject_id', 'teacher_id', 'start_time', 'end_time'];
       }
 
       if (table === 'subject_list') {
@@ -130,10 +130,9 @@ export const dbService = {
       
       if (error) {
         if (error.code === '42501') {
-           console.error(`🚨 RLS POLICY ERROR: Please run the SQL Policy query for table [${table}] in Supabase.`);
-           alert(`SUPABASE ACCESS DENIED: Please run the SQL Policy for table "${table}" to allow data updates.`);
-        } else if (error.code === '22P02') {
-           console.error(`🚨 DATA TYPE ERROR: Table [${table}] ID might be set to 'bigint'. Please change it to 'text' in Supabase.`);
+           const fixSql = `CREATE POLICY "Allow All" ON public.${table} FOR ALL USING (true) WITH CHECK (true);`;
+           console.error(`🚨 RLS POLICY ERROR for [${table}]. Run this SQL in Supabase Editor:\n${fixSql}`);
+           alert(`DATABASE ACCESS DENIED: Please run the SQL Policy for table "${table}" in Supabase SQL Editor.`);
         }
         throw error;
       }
