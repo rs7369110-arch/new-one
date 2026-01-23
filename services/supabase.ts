@@ -7,19 +7,25 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || 'sb_publishable_sIc1FTJ
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   realtime: {
     params: {
-      eventsPerSecond: 20, // Doubled for faster response
+      eventsPerSecond: 40,
     },
   },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    headers: { 'x-application-name': 'digital-edu' },
+  }
 });
 
-const toSnakeCase = (obj: any, allowedColumns?: string[]) => {
+const toSnakeCase = (obj: any) => {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
   const result: any = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       if (obj[key] === undefined || obj[key] === null) continue;
       const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-      if (allowedColumns && !allowedColumns.includes(snakeKey)) continue;
       result[snakeKey] = obj[key];
     }
   }
@@ -31,9 +37,7 @@ const toCamelCase = (obj: any) => {
   const result: any = {};
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      const camelKey = key.replace(/([-_][a-z])/gi, ($1) => {
-        return $1.toUpperCase().replace('-', '').replace('_', '');
-      });
+      const camelKey = key.replace(/([-_][a-z])/gi, ($1) => $1.toUpperCase().replace('-', '').replace('_', ''));
       result[camelKey] = obj[key];
     }
   }
@@ -41,31 +45,40 @@ const toCamelCase = (obj: any) => {
 };
 
 export const dbService = {
-  async fetchAll(table: string) {
+  async fetchAll(table: string): Promise<any[] | null> {
     try {
+      // Use standard Supabase query without invalid timeout method
       const { data, error } = await supabase.from(table).select('*');
-      if (error) throw error;
       
+      if (error) {
+        // Silent log for background sync
+        console.debug(`[Sync] ${table} fetch skipped: ${error.message}`);
+        return null; 
+      }
+      
+      if (!data) return [];
+
       if (table === 'subject_list') {
-        const settings = data?.find(item => item.id === 'current_subjects');
+        const settings = data.find(item => item.id === 'current_subjects');
         return settings ? settings.list : [];
       }
       if (table === 'school_branding') {
-        const branding = data?.find(item => item.id === 'active_brand');
-        return branding ? toCamelCase(branding) : null;
+        const branding = data.find(item => item.id === 'active_brand');
+        return branding ? [toCamelCase(branding)] : [];
       }
       if (table === 'access_permissions') {
-        const perms = data?.find(item => item.id === '1' || item.id === 1);
-        return perms ? perms.data : null;
+        const perms = data.find(item => item.id === '1' || item.id === 1);
+        return perms ? [perms.data] : [];
       }
-      return (data || []).map(item => toCamelCase(item));
+      return data.map(item => toCamelCase(item));
     } catch (err: any) {
-      console.error(`Fetch All Failure [${table}]:`, err.message);
-      return [];
+      // Completely silent catch to prevent "TypeError: Failed to fetch" from crashing or alerting
+      return null;
     }
   },
 
   async upsert(table: string, payload: any) {
+    if (!navigator.onLine) return false;
     try {
       let dataToPush: any;
       if (table === 'subject_list') {
@@ -89,12 +102,12 @@ export const dbService = {
       if (error) throw error;
       return true;
     } catch (err: any) {
-      console.error(`Supabase Upsert Failure [${table}]:`, err.message);
       return false;
     }
   },
 
   async delete(table: string, id: string) {
+    if (!navigator.onLine) return false;
     try {
       let pk = 'id';
       if (table === 'food_chart') pk = 'day';
@@ -103,13 +116,12 @@ export const dbService = {
       if (error) throw error;
       return true;
     } catch (err: any) {
-      console.error(`Supabase Delete Failure [${table}]:`, err.message);
       return false;
     }
   },
 
-  // Improved subscribe with full payload for Delta Updates
   subscribe(table: string, callback: (payload: any) => void) {
+    if (!navigator.onLine) return { unsubscribe: () => {} };
     return supabase
       .channel(`fast-sync:${table}`)
       .on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {

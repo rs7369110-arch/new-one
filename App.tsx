@@ -54,31 +54,32 @@ interface Notification {
 }
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(storage.get(DB_KEYS.USER, null));
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [currentLang, setCurrentLang] = useState<Language>(storage.get(DB_KEYS.LANGUAGE as any, Language.EN));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   const [schoolBranding, setSchoolBranding] = useState<SchoolBranding>(storage.get(DB_KEYS.SCHOOL_BRANDING, DEFAULT_BRANDING));
   const [permissions, setPermissions] = useState<AccessPermissions>(storage.get(DB_KEYS.ACCESS_PERMISSIONS, DEFAULT_PERMISSIONS));
-  const [students, setStudents] = useState<Student[]>([]);
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const [homeworks, setHomeworks] = useState<Homework[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
-  const [teachers, setTeachers] = useState<TeacherAssignment[]>([]);
-  const [foodChart, setFoodChart] = useState<FoodItem[]>([]);
+  const [students, setStudents] = useState<Student[]>(storage.get(DB_KEYS.STUDENTS, []));
+  const [notices, setNotices] = useState<Notice[]>(storage.get(DB_KEYS.NOTICES, []));
+  const [homeworks, setHomeworks] = useState<Homework[]>(storage.get(DB_KEYS.HOMEWORK, []));
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>(storage.get(DB_KEYS.ATTENDANCE, []));
+  const [teachers, setTeachers] = useState<TeacherAssignment[]>(storage.get(DB_KEYS.TEACHERS, []));
+  const [foodChart, setFoodChart] = useState<FoodItem[]>(storage.get(DB_KEYS.FOOD_CHART, DEFAULT_FOOD_CHART));
   const [marks, setMarks] = useState<MarksRecord[]>([]);
   const [curriculum, setCurriculum] = useState<CurriculumItem[]>([]);
   const [messages, setMessages] = useState<SchoolMessage[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [activities, setActivities] = useState<AdminActivity[]>([]);
-  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>(storage.get(DB_KEYS.SUBJECT_LIST, DEFAULT_SUBJECTS));
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [customTemplates, setCustomTemplates] = useState<CustomProfileTemplate[]>([]);
-  const [feeTransactions, setFeeTransactions] = useState<FeeTransaction[]>([]);
+  const [feeTransactions, setFeeTransactions] = useState<FeeTransaction[]>(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   
@@ -107,11 +108,13 @@ const App: React.FC = () => {
   };
 
   const syncAll = useCallback(async () => {
+    if (!navigator.onLine) {
+      setIsOnline(false);
+      return;
+    }
     try {
       setIsSyncing(true);
-      const [
-        sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, brandData, permData, subjData, ttData, actData
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         dbService.fetchAll('students'), dbService.fetchAll('notices'), dbService.fetchAll('homework'),
         dbService.fetchAll('attendance'), dbService.fetchAll('teachers'), dbService.fetchAll('food_chart'),
         dbService.fetchAll('marks'), dbService.fetchAll('curriculum'), dbService.fetchAll('messages'),
@@ -121,22 +124,35 @@ const App: React.FC = () => {
         dbService.fetchAll('master_timetable'), dbService.fetchAll('activities')
       ]);
 
-      setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData);
-      setNotices(nData); storage.set(DB_KEYS.NOTICES, nData);
-      setHomeworks(hData); storage.set(DB_KEYS.HOMEWORK, hData);
-      setAttendance(aData); storage.set(DB_KEYS.ATTENDANCE, aData);
-      setTeachers(tData); storage.set(DB_KEYS.TEACHERS, tData);
-      setFoodChart(fData.length ? fData : DEFAULT_FOOD_CHART); storage.set(DB_KEYS.FOOD_CHART, fData);
-      setCurriculum(cData); setMarks(mData); setMessages(msgData); setGallery(galData); setLeaves(lData);
-      setFeeStructures(fsData); setFeeTransactions(ftData); setCustomTemplates(ctData);
-      setAvailableSubjects(subData.length ? subData : DEFAULT_SUBJECTS);
-      if (brandData) setSchoolBranding(brandData as any);
-      if (permData) setPermissions(permData as any);
-      setSubjects(subjData); setTimetable(ttData); setActivities(actData);
+      const getValidData = (idx: number) => {
+        const res = results[idx];
+        return (res.status === 'fulfilled' && res.value !== null) ? res.value : null;
+      };
+
+      const sData = getValidData(0); if (sData) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
+      const nData = getValidData(1); if (nData) { setNotices(nData); storage.set(DB_KEYS.NOTICES, nData); }
+      const hData = getValidData(2); if (hData) { setHomeworks(hData); storage.set(DB_KEYS.HOMEWORK, hData); }
+      const aData = getValidData(3); if (aData) { setAttendance(aData); storage.set(DB_KEYS.ATTENDANCE, aData); }
+      const tData = getValidData(4); if (tData) { setTeachers(tData); storage.set(DB_KEYS.TEACHERS, tData); }
+      const fData = getValidData(5); if (fData) { setFoodChart(fData.length ? fData : DEFAULT_FOOD_CHART); storage.set(DB_KEYS.FOOD_CHART, fData); }
+      const mData = getValidData(6); if (mData) setMarks(mData);
+      const cData = getValidData(7); if (cData) setCurriculum(cData);
+      const msgData = getValidData(8); if (msgData) setMessages(msgData);
+      const galData = getValidData(9); if (galData) setGallery(galData);
+      const lData = getValidData(10); if (lData) setLeaves(lData);
+      const fsData = getValidData(11); if (fsData) setFeeStructures(fsData);
+      const ftData = getValidData(12); if (ftData) { setFeeTransactions(ftData); storage.set(DB_KEYS.FEE_TRANSACTIONS, ftData); }
+      const ctData = getValidData(13); if (ctData) setCustomTemplates(ctData);
+      const subData = getValidData(14); if (subData) { setAvailableSubjects(subData.length ? subData : DEFAULT_SUBJECTS); storage.set(DB_KEYS.SUBJECT_LIST, subData); }
+      const brandData = getValidData(15); if (brandData && brandData.length) { setSchoolBranding(brandData[0]); storage.set(DB_KEYS.SCHOOL_BRANDING, brandData[0]); }
+      const permData = getValidData(16); if (permData && permData.length) { setPermissions(permData[0]); storage.set(DB_KEYS.ACCESS_PERMISSIONS, permData[0]); }
+      const subjData = getValidData(17); if (subjData) setSubjects(subjData);
+      const ttData = getValidData(18); if (ttData) setTimetable(ttData);
+      const actData = getValidData(19); if (actData) setActivities(actData);
       
       setIsSyncing(false);
+      setIsOnline(true);
     } catch (err) {
-      console.error("Master Sync Failure:", err);
       setIsSyncing(false);
     }
   }, []);
@@ -167,25 +183,46 @@ const App: React.FC = () => {
       if (eventType === 'INSERT') {
         newState = [item, ...newState];
       } else if (eventType === 'UPDATE') {
-        newState = newState.map(i => i.id === item.id ? item : i);
+        newState = newState.map(i => {
+           if (table === 'attendance') return (i.studentId === item.studentId && i.date === item.date) ? item : i;
+           if (table === 'food_chart') return i.day === item.day ? item : i;
+           return i.id === item.id ? item : i;
+        });
       } else if (eventType === 'DELETE') {
-        newState = newState.filter(i => i.id !== oldItem.id);
+        const oldPk = String(oldItem.id || oldItem.day || oldItem.grade);
+        newState = newState.filter(i => {
+           const currentPk = String(i.id || i.day || i.grade);
+           if (table === 'attendance' && oldItem.studentId) {
+             return !(String(i.studentId) === String(oldItem.studentId) && String(i.date) === String(oldItem.date));
+           }
+           return currentPk !== oldPk;
+        });
+        triggerNotification('Cloud Node Sync', `Database change updated on this device.`, 'sync');
       }
 
       setter(newState);
       storage.set(storageKey, newState);
-      if (eventType === 'DELETE') triggerNotification('Database Clean', `A record was removed from ${table} on another device.`, 'sync');
     }
   }, [students, notices, homeworks, attendance, teachers, messages, gallery, curriculum, leaves, feeTransactions, activities, triggerNotification]);
 
   useEffect(() => {
     syncAll();
-    const tables = ['students', 'notices', 'homework', 'attendance', 'teachers', 'messages', 'gallery', 'curriculum', 'leaves', 'activities', 'fee_transactions'];
+    const tables = ['students', 'notices', 'homework', 'attendance', 'teachers', 'messages', 'gallery', 'curriculum', 'leaves', 'activities', 'fee_transactions', 'school_branding', 'access_permissions', 'food_chart', 'subject_list'];
     const subs = tables.map(t => dbService.subscribe(t, (p) => handleRealtimeUpdate(t, p)));
-    window.addEventListener('online', syncAll);
+    
+    const handleConnectivityChange = () => {
+      const online = navigator.onLine;
+      setIsOnline(online);
+      if (online) syncAll();
+    };
+
+    window.addEventListener('online', handleConnectivityChange);
+    window.addEventListener('offline', handleConnectivityChange);
+    
     return () => {
       subs.forEach(s => s.unsubscribe());
-      window.removeEventListener('online', syncAll);
+      window.removeEventListener('online', handleConnectivityChange);
+      window.removeEventListener('offline', handleConnectivityChange);
     };
   }, [syncAll, handleRealtimeUpdate]);
 
@@ -217,9 +254,9 @@ const App: React.FC = () => {
 
   const createSyncDelete = <T,>(key: string, table: string, setter: React.Dispatch<React.SetStateAction<T[]>>) => {
     return async (id: string) => {
-      setter(prev => prev.filter((item: any) => item.id !== id));
+      setter(prev => prev.filter((item: any) => (String(item.id) !== String(id) && String(item.day) !== String(id))));
       const currentLocal = storage.get<T[]>(key, []);
-      storage.set(key, currentLocal.filter((item: any) => item.id !== id));
+      storage.set(key, currentLocal.filter((item: any) => (String(item.id) !== String(id) && String(item.day) !== String(id))));
       dbService.delete(table, id);
     };
   };
@@ -249,7 +286,7 @@ const App: React.FC = () => {
   const deleteTeacher = createSyncDelete(DB_KEYS.TEACHERS, 'teachers', setTeachers);
   const deleteCurriculum = createSyncDelete(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
 
-  if (!currentUser) return <Login onLogin={(user) => setCurrentUser(user)} />;
+  if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
   const renderContent = () => {
     const activeStudents = students.filter(s => s.status !== 'CANCELLED');
@@ -285,9 +322,9 @@ const App: React.FC = () => {
   return (
     <div className={`flex flex-col md:flex-row h-screen h-[100dvh] overflow-hidden relative transition-colors duration-500 ${isDarkMode ? 'bg-[#0a0a0c] text-slate-100' : 'bg-[#f8faff] text-slate-800'}`}>
       {isSyncing && (
-        <div className="fixed top-4 right-4 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-pulse border border-indigo-400 scale-75 md:scale-100">
+        <div className="fixed top-4 right-4 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 border border-indigo-400 scale-75 md:scale-100 animate-pulse">
            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
-           <span className="text-[10px] font-black uppercase tracking-widest">Realtime Node Active</span>
+           <span className="text-[10px] font-black uppercase tracking-widest">Master Link Online</span>
         </div>
       )}
       <div className="fixed top-16 right-4 z-[7000] flex flex-col gap-2 w-full max-w-[280px]">
@@ -303,11 +340,26 @@ const App: React.FC = () => {
         <div className="max-w-7xl mx-auto pb-24 md:pb-10">{renderContent()}</div>
       </main>
       <div className={`md:hidden fixed bottom-0 left-0 right-0 z-[4000] flex items-center justify-around px-4 py-3 border-t backdrop-blur-xl ${isDarkMode ? 'bg-[#0a0a0c]/90 border-white/5' : 'bg-white/90 border-slate-100 shadow-up'}`}>
-        <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'dashboard' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-house-chimney text-lg"></i><span className="text-[9px] font-black uppercase">Home</span></button>
-        <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'attendance' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-calendar-check text-lg"></i><span className="text-[9px] font-black uppercase">Attend</span></button>
-        <button onClick={() => setActiveTab('students')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'students' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-user-plus text-lg"></i><span className="text-[9px] font-black uppercase">Students</span></button>
-        <button onClick={handleLogout} className="flex flex-col items-center gap-1 flex-1 text-rose-500"><i className="fa-solid fa-power-off text-lg"></i><span className="text-[9px] font-black uppercase">Exit</span></button>
-        <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 flex-1 text-slate-400"><i className="fa-solid fa-ellipsis text-lg"></i><span className="text-[9px] font-black uppercase">Menu</span></button>
+        <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'dashboard' ? 'text-indigo-50' : 'text-slate-400'}`}>
+           <i className="fa-solid fa-house-chimney text-lg"></i>
+           <span className="text-[9px] font-black uppercase">Home</span>
+        </button>
+        <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'attendance' ? 'text-indigo-50' : 'text-slate-400'}`}>
+           <i className="fa-solid fa-calendar-check text-lg"></i>
+           <span className="text-[9px] font-black uppercase">Attend</span>
+        </button>
+        <div className="flex flex-col items-center gap-1 flex-1">
+           <div className={`w-2 h-2 rounded-full mb-1 ${isOnline ? 'bg-emerald-500 shadow-emerald-500/50 shadow-lg' : 'bg-rose-500'}`}></div>
+           <span className={`text-[8px] font-black uppercase ${isOnline ? 'text-emerald-500' : 'text-rose-500'}`}>{isOnline ? 'Cloud' : 'Local'}</span>
+        </div>
+        <button onClick={handleLogout} className="flex flex-col items-center gap-1 flex-1 text-rose-500">
+           <i className="fa-solid fa-power-off text-lg"></i>
+           <span className="text-[9px] font-black uppercase">Exit</span>
+        </button>
+        <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 flex-1 text-slate-400">
+           <i className="fa-solid fa-ellipsis text-lg"></i>
+           <span className="text-[9px] font-black uppercase">Menu</span>
+        </button>
       </div>
     </div>
   );
