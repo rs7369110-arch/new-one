@@ -91,6 +91,11 @@ const App: React.FC = () => {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
   }, []);
 
+  const handleLogout = useCallback(() => {
+    setCurrentUser(null);
+    storage.clear(DB_KEYS.USER);
+  }, []);
+
   const toCamelCase = (obj: any) => {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
     const result: any = {};
@@ -136,7 +141,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Global Realtime Handler for Multi-Device Consistency
   const handleRealtimeUpdate = useCallback((table: string, payload: any) => {
     const { eventType, new: newRecord, old: oldRecord } = payload;
     const item = toCamelCase(newRecord);
@@ -176,11 +180,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     syncAll();
-    
-    // Subscribe to ALL key tables for instant cross-device updates
     const tables = ['students', 'notices', 'homework', 'attendance', 'teachers', 'messages', 'gallery', 'curriculum', 'leaves', 'activities', 'fee_transactions'];
     const subs = tables.map(t => dbService.subscribe(t, (p) => handleRealtimeUpdate(t, p)));
-
     window.addEventListener('online', syncAll);
     return () => {
       subs.forEach(s => s.unsubscribe());
@@ -223,7 +224,6 @@ const App: React.FC = () => {
     };
   };
 
-  // State Updaters
   const updateNotices = createSyncUpdate(DB_KEYS.NOTICES, 'notices', setNotices);
   const updateStudents = createSyncUpdate(DB_KEYS.STUDENTS, 'students', setStudents);
   const updateTeachers = createSyncUpdate(DB_KEYS.TEACHERS, 'teachers', setTeachers);
@@ -298,7 +298,7 @@ const App: React.FC = () => {
            </div>
          ))}
       </div>
-      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={() => setCurrentUser(null)} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} permissions={permissions} onSync={syncAll} isSyncing={isSyncing} />
+      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={handleLogout} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} permissions={permissions} onSync={syncAll} isSyncing={isSyncing} />
       <main className="flex-1 overflow-y-auto mobile-scroll relative z-10 custom-scrollbar p-4 md:p-12">
         <div className="max-w-7xl mx-auto pb-24 md:pb-10">{renderContent()}</div>
       </main>
@@ -306,6 +306,7 @@ const App: React.FC = () => {
         <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'dashboard' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-house-chimney text-lg"></i><span className="text-[9px] font-black uppercase">Home</span></button>
         <button onClick={() => setActiveTab('attendance')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'attendance' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-calendar-check text-lg"></i><span className="text-[9px] font-black uppercase">Attend</span></button>
         <button onClick={() => setActiveTab('students')} className={`flex flex-col items-center gap-1 flex-1 ${activeTab === 'students' ? 'text-indigo-50' : 'text-slate-400'}`}><i className="fa-solid fa-user-plus text-lg"></i><span className="text-[9px] font-black uppercase">Students</span></button>
+        <button onClick={handleLogout} className="flex flex-col items-center gap-1 flex-1 text-rose-500"><i className="fa-solid fa-power-off text-lg"></i><span className="text-[9px] font-black uppercase">Exit</span></button>
         <button onClick={() => setIsSidebarOpen(true)} className="flex flex-col items-center gap-1 flex-1 text-slate-400"><i className="fa-solid fa-ellipsis text-lg"></i><span className="text-[9px] font-black uppercase">Menu</span></button>
       </div>
     </div>
