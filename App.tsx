@@ -54,7 +54,8 @@ interface Notification {
 }
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(storage.get(DB_KEYS.USER, null));
+  // FORCE LOGIN: Changed initial state to null so it doesn't auto-login from storage
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [currentLang, setCurrentLang] = useState<Language>(storage.get(DB_KEYS.LANGUAGE as any, Language.EN));
@@ -108,10 +109,9 @@ const App: React.FC = () => {
   };
 
   const syncAll = useCallback(async () => {
-    if (!navigator.onLine) {
-      setIsOnline(false);
-      return;
-    }
+    // PREVENT FETCH ERRORS: Only sync if we have a user and internet
+    if (!navigator.onLine || !currentUser) return;
+    
     try {
       setIsSyncing(true);
       const results = await Promise.allSettled([
@@ -155,7 +155,7 @@ const App: React.FC = () => {
     } catch (err) {
       setIsSyncing(false);
     }
-  }, []);
+  }, [currentUser]);
 
   const handleRealtimeUpdate = useCallback((table: string, payload: any) => {
     const { eventType, new: newRecord, old: oldRecord } = payload;
@@ -205,7 +205,10 @@ const App: React.FC = () => {
     }
   }, [students, notices, homeworks, attendance, teachers, messages, gallery, curriculum, leaves, feeTransactions, activities, triggerNotification]);
 
+  // COMBINED LOGIC: Only start listening and syncing AFTER login
   useEffect(() => {
+    if (!currentUser) return;
+
     syncAll();
     const tables = ['students', 'notices', 'homework', 'attendance', 'teachers', 'messages', 'gallery', 'curriculum', 'leaves', 'activities', 'fee_transactions', 'school_branding', 'access_permissions', 'food_chart', 'subject_list'];
     const subs = tables.map(t => dbService.subscribe(t, (p) => handleRealtimeUpdate(t, p)));
@@ -224,7 +227,7 @@ const App: React.FC = () => {
       window.removeEventListener('online', handleConnectivityChange);
       window.removeEventListener('offline', handleConnectivityChange);
     };
-  }, [syncAll, handleRealtimeUpdate]);
+  }, [currentUser, syncAll, handleRealtimeUpdate]);
 
   const addActivity = useCallback(async (actionType: AdminActivity['actionType'], module: string, target: string, details?: string) => {
     if (!currentUser) return;
@@ -286,6 +289,7 @@ const App: React.FC = () => {
   const deleteTeacher = createSyncDelete(DB_KEYS.TEACHERS, 'teachers', setTeachers);
   const deleteCurriculum = createSyncDelete(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
 
+  // LOGIN SCREEN ALWAYS FIRST
   if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
 
   const renderContent = () => {
