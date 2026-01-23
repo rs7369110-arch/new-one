@@ -54,7 +54,7 @@ interface Notification {
 }
 
 const App: React.FC = () => {
-  // FORCE LOGIN: Changed initial state to null so it doesn't auto-login from storage
+  // SECURITY FIX: Initial user state is always NULL. No storage.get() here.
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
@@ -87,6 +87,11 @@ const App: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [lastViewed, setLastViewed] = useState<Record<string, number>>(storage.get(DB_KEYS.LAST_VIEWED, {}));
 
+  // SECURITY FIX: On component mount, clear any existing user in localStorage to prevent auto-login hacks
+  useEffect(() => {
+    storage.clear(DB_KEYS.USER);
+  }, []);
+
   const triggerNotification = useCallback((title: string, message: string, type: Notification['type'] = 'info') => {
     const id = Math.random().toString(36).substr(2, 9);
     setNotifications(prev => [{ id, title, message, type }, ...prev]);
@@ -109,7 +114,6 @@ const App: React.FC = () => {
   };
 
   const syncAll = useCallback(async () => {
-    // PREVENT FETCH ERRORS: Only sync if we have a user and internet
     if (!navigator.onLine || !currentUser) return;
     
     try {
@@ -205,7 +209,6 @@ const App: React.FC = () => {
     }
   }, [students, notices, homeworks, attendance, teachers, messages, gallery, curriculum, leaves, feeTransactions, activities, triggerNotification]);
 
-  // COMBINED LOGIC: Only start listening and syncing AFTER login
   useEffect(() => {
     if (!currentUser) return;
 
@@ -289,8 +292,8 @@ const App: React.FC = () => {
   const deleteTeacher = createSyncDelete(DB_KEYS.TEACHERS, 'teachers', setTeachers);
   const deleteCurriculum = createSyncDelete(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
 
-  // LOGIN SCREEN ALWAYS FIRST
-  if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
+  // LOGIN SCREEN ALWAYS FIRST: currentUser is NULL on startup.
+  if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); }} />;
 
   const renderContent = () => {
     const activeStudents = students.filter(s => s.status !== 'CANCELLED');
@@ -339,7 +342,7 @@ const App: React.FC = () => {
            </div>
          ))}
       </div>
-      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={handleLogout} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} permissions={permissions} onSync={syncAll} isSyncing={isSyncing} />
+      <Sidebar role={currentUser?.role || UserRole.STUDENT} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={handleLogout} userName={currentUser?.name || ''} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} permissions={permissions} onSync={syncAll} isSyncing={isSyncing} />
       <main className="flex-1 overflow-y-auto mobile-scroll relative z-10 custom-scrollbar p-4 md:p-12">
         <div className="max-w-7xl mx-auto pb-24 md:pb-10">{renderContent()}</div>
       </main>
