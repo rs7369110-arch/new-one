@@ -87,33 +87,19 @@ const App: React.FC = () => {
 
   const triggerNotification = useCallback((title: string, message: string, type: Notification['type'] = 'info') => {
     const id = Math.random().toString(36).substr(2, 9);
-    const newNotif = { id, title, message, type };
-    setNotifications(prev => [newNotif, ...prev]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 3000);
+    setNotifications(prev => [{ id, title, message, type }, ...prev]);
+    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
   }, []);
 
-  const addActivity = useCallback(async (actionType: AdminActivity['actionType'], module: string, target: string, details?: string) => {
-    if (!currentUser) return;
-    const newActivity: AdminActivity = {
-      id: Date.now().toString() + Math.floor(Math.random() * 1000),
-      adminName: currentUser.name,
-      actionType,
-      module,
-      target,
-      timestamp: new Date().toLocaleString(),
-      details
-    };
-    setActivities(prev => [...prev, newActivity]);
-    try {
-      dbService.upsert('activities', newActivity).catch(() => {
-        console.debug("Activity background sync delayed.");
-      });
-    } catch (err) {
-      console.warn("Activities sync blocked.");
+  const toCamelCase = (obj: any) => {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
+    const result: any = {};
+    for (const key in obj) {
+      const camelKey = key.replace(/([-_][a-z])/gi, ($1) => $1.toUpperCase().replace('-', '').replace('_', ''));
+      result[camelKey] = obj[key];
     }
-  }, [currentUser]);
+    return result;
+  };
 
   const syncAll = useCallback(async () => {
     try {
@@ -121,41 +107,27 @@ const App: React.FC = () => {
       const [
         sData, nData, hData, aData, tData, fData, mData, cData, msgData, galData, lData, fsData, ftData, ctData, subData, brandData, permData, subjData, ttData, actData
       ] = await Promise.all([
-        dbService.fetchAll('students'),
-        dbService.fetchAll('notices'),
-        dbService.fetchAll('homework'),
-        dbService.fetchAll('attendance'),
-        dbService.fetchAll('teachers'),
-        dbService.fetchAll('food_chart'),
-        dbService.fetchAll('marks'),
-        dbService.fetchAll('curriculum'),
-        dbService.fetchAll('messages'),
-        dbService.fetchAll('gallery'),
-        dbService.fetchAll('leaves'),
-        dbService.fetchAll('fee_structures'),
-        dbService.fetchAll('fee_transactions'),
-        dbService.fetchAll('custom_templates'),
-        dbService.fetchAll('subject_list'),
-        dbService.fetchAll('school_branding'),
-        dbService.fetchAll('access_permissions'),
-        dbService.fetchAll('master_subjects'),
-        dbService.fetchAll('master_timetable'),
-        dbService.fetchAll('activities')
+        dbService.fetchAll('students'), dbService.fetchAll('notices'), dbService.fetchAll('homework'),
+        dbService.fetchAll('attendance'), dbService.fetchAll('teachers'), dbService.fetchAll('food_chart'),
+        dbService.fetchAll('marks'), dbService.fetchAll('curriculum'), dbService.fetchAll('messages'),
+        dbService.fetchAll('gallery'), dbService.fetchAll('leaves'), dbService.fetchAll('fee_structures'),
+        dbService.fetchAll('fee_transactions'), dbService.fetchAll('custom_templates'), dbService.fetchAll('subject_list'),
+        dbService.fetchAll('school_branding'), dbService.fetchAll('access_permissions'), dbService.fetchAll('master_subjects'),
+        dbService.fetchAll('master_timetable'), dbService.fetchAll('activities')
       ]);
 
-      if (sData.length) { setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData); }
-      if (nData.length) { setNotices(nData); storage.set(DB_KEYS.NOTICES, nData); }
-      if (hData.length) { setHomeworks(hData); storage.set(DB_KEYS.HOMEWORK, hData); }
-      if (aData.length) { setAttendance(aData); storage.set(DB_KEYS.ATTENDANCE, aData); }
-      if (tData.length) { setTeachers(tData); storage.set(DB_KEYS.TEACHERS, tData); }
-      if (fData.length) { setFoodChart(fData); storage.set(DB_KEYS.FOOD_CHART, fData); }
-      if (cData.length) { setCurriculum(cData); storage.set(DB_KEYS.CURRICULUM, cData); }
-      if (galData.length) { setGallery(galData); storage.set(DB_KEYS.GALLERY, galData); }
-      if (actData.length) { setActivities(actData); }
-      if (brandData) { setSchoolBranding(brandData as any); storage.set(DB_KEYS.SCHOOL_BRANDING, brandData); }
-      if (permData) { setPermissions(permData as any); storage.set(DB_KEYS.ACCESS_PERMISSIONS, permData); }
-      if (subjData.length) { setSubjects(subjData); storage.set(DB_KEYS.SUBJECTS, subjData); }
-      if (ttData.length) { setTimetable(ttData); storage.set(DB_KEYS.TIMETABLE, ttData); }
+      setStudents(sData); storage.set(DB_KEYS.STUDENTS, sData);
+      setNotices(nData); storage.set(DB_KEYS.NOTICES, nData);
+      setHomeworks(hData); storage.set(DB_KEYS.HOMEWORK, hData);
+      setAttendance(aData); storage.set(DB_KEYS.ATTENDANCE, aData);
+      setTeachers(tData); storage.set(DB_KEYS.TEACHERS, tData);
+      setFoodChart(fData.length ? fData : DEFAULT_FOOD_CHART); storage.set(DB_KEYS.FOOD_CHART, fData);
+      setCurriculum(cData); setMarks(mData); setMessages(msgData); setGallery(galData); setLeaves(lData);
+      setFeeStructures(fsData); setFeeTransactions(ftData); setCustomTemplates(ctData);
+      setAvailableSubjects(subData.length ? subData : DEFAULT_SUBJECTS);
+      if (brandData) setSchoolBranding(brandData as any);
+      if (permData) setPermissions(permData as any);
+      setSubjects(subjData); setTimetable(ttData); setActivities(actData);
       
       setIsSyncing(false);
     } catch (err) {
@@ -164,31 +136,67 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Global Realtime Handler for Multi-Device Consistency
+  const handleRealtimeUpdate = useCallback((table: string, payload: any) => {
+    const { eventType, new: newRecord, old: oldRecord } = payload;
+    const item = toCamelCase(newRecord);
+    const oldItem = toCamelCase(oldRecord);
+    
+    const setters: Record<string, [any[], React.Dispatch<React.SetStateAction<any[]>>, string]> = {
+      'students': [students, setStudents, DB_KEYS.STUDENTS],
+      'notices': [notices, setNotices, DB_KEYS.NOTICES],
+      'homework': [homeworks, setHomeworks, DB_KEYS.HOMEWORK],
+      'attendance': [attendance, setAttendance, DB_KEYS.ATTENDANCE],
+      'teachers': [teachers, setTeachers, DB_KEYS.TEACHERS],
+      'messages': [messages, setMessages, DB_KEYS.MESSAGES],
+      'gallery': [gallery, setGallery, DB_KEYS.GALLERY],
+      'curriculum': [curriculum, setCurriculum, DB_KEYS.CURRICULUM],
+      'leaves': [leaves, setLeaves, DB_KEYS.LEAVES],
+      'fee_transactions': [feeTransactions, setFeeTransactions, DB_KEYS.FEE_TRANSACTIONS],
+      'activities': [activities, setActivities, DB_KEYS.ACTIVITY_LOG]
+    };
+
+    if (setters[table]) {
+      const [state, setter, storageKey] = setters[table];
+      let newState = [...state];
+
+      if (eventType === 'INSERT') {
+        newState = [item, ...newState];
+      } else if (eventType === 'UPDATE') {
+        newState = newState.map(i => i.id === item.id ? item : i);
+      } else if (eventType === 'DELETE') {
+        newState = newState.filter(i => i.id !== oldItem.id);
+      }
+
+      setter(newState);
+      storage.set(storageKey, newState);
+      if (eventType === 'DELETE') triggerNotification('Database Clean', `A record was removed from ${table} on another device.`, 'sync');
+    }
+  }, [students, notices, homeworks, attendance, teachers, messages, gallery, curriculum, leaves, feeTransactions, activities, triggerNotification]);
+
   useEffect(() => {
-    const savedUser = storage.get<User | null>(DB_KEYS.USER, null);
-    if (savedUser) setCurrentUser(savedUser);
-    setStudents(storage.get(DB_KEYS.STUDENTS, []));
-    setNotices(storage.get(DB_KEYS.NOTICES, []));
-    setHomeworks(storage.get(DB_KEYS.HOMEWORK, []));
-    setAttendance(storage.get(DB_KEYS.ATTENDANCE, []));
-    setTeachers(storage.get(DB_KEYS.TEACHERS, []));
-    setGallery(storage.get(DB_KEYS.GALLERY, []));
-    setFoodChart(storage.get(DB_KEYS.FOOD_CHART, DEFAULT_FOOD_CHART));
-    setCurriculum(storage.get(DB_KEYS.CURRICULUM, []));
-    setFeeTransactions(storage.get(DB_KEYS.FEE_TRANSACTIONS, []));
-    setAvailableSubjects(storage.get(DB_KEYS.SUBJECT_LIST, DEFAULT_SUBJECTS));
     syncAll();
-    const studentSub = dbService.subscribe('students', () => syncAll());
-    const curriculumSub = dbService.subscribe('curriculum', () => syncAll());
-    const foodSub = dbService.subscribe('food_chart', () => syncAll());
+    
+    // Subscribe to ALL key tables for instant cross-device updates
+    const tables = ['students', 'notices', 'homework', 'attendance', 'teachers', 'messages', 'gallery', 'curriculum', 'leaves', 'activities', 'fee_transactions'];
+    const subs = tables.map(t => dbService.subscribe(t, (p) => handleRealtimeUpdate(t, p)));
+
     window.addEventListener('online', syncAll);
     return () => {
-      studentSub.unsubscribe();
-      curriculumSub.unsubscribe();
-      foodSub.unsubscribe();
+      subs.forEach(s => s.unsubscribe());
       window.removeEventListener('online', syncAll);
     };
-  }, [syncAll]);
+  }, [syncAll, handleRealtimeUpdate]);
+
+  const addActivity = useCallback(async (actionType: AdminActivity['actionType'], module: string, target: string, details?: string) => {
+    if (!currentUser) return;
+    const newActivity: AdminActivity = {
+      id: Date.now().toString(),
+      adminName: currentUser.name, actionType, module, target,
+      timestamp: new Date().toLocaleString(), details
+    };
+    dbService.upsert('activities', newActivity);
+  }, [currentUser]);
 
   const updateViewedStamp = (tab: string) => {
     const newStamps = { ...lastViewed, [tab]: Date.now() };
@@ -202,21 +210,7 @@ const App: React.FC = () => {
     return async (newData: T) => {
       setter(newData);
       storage.set(key, newData);
-      setIsSyncing(true);
-      try {
-        const success = await dbService.upsert(table, newData);
-        if (!success) throw new Error("Cloud rejected update");
-        setIsSyncing(false);
-      } catch (err: any) {
-        setIsSyncing(false);
-        if (err.message.includes('row-level security') || err.message.includes('permission denied')) {
-           triggerNotification('Security Blocked', `Please update ${table} policies in Supabase.`, 'error');
-        } else if (err.message.includes('invalid input syntax')) {
-           triggerNotification('ID Mismatch', `Table ${table} expects numeric ID. Change column type to TEXT.`, 'error');
-        } else {
-           triggerNotification('Offline Mode', 'Changes saved locally.', 'sync');
-        }
-      }
+      dbService.upsert(table, newData);
     };
   };
 
@@ -225,22 +219,16 @@ const App: React.FC = () => {
       setter(prev => prev.filter((item: any) => item.id !== id));
       const currentLocal = storage.get<T[]>(key, []);
       storage.set(key, currentLocal.filter((item: any) => item.id !== id));
-      setIsSyncing(true);
-      try {
-        await dbService.delete(table, id);
-        setIsSyncing(false);
-      } catch (err) {
-        setIsSyncing(false);
-      }
+      dbService.delete(table, id);
     };
   };
 
+  // State Updaters
   const updateNotices = createSyncUpdate(DB_KEYS.NOTICES, 'notices', setNotices);
   const updateStudents = createSyncUpdate(DB_KEYS.STUDENTS, 'students', setStudents);
   const updateTeachers = createSyncUpdate(DB_KEYS.TEACHERS, 'teachers', setTeachers);
   const updateFoodChart = createSyncUpdate(DB_KEYS.FOOD_CHART, 'food_chart', setFoodChart);
   const updateMarks = createSyncUpdate(DB_KEYS.MARKS, 'marks', setMarks);
-  const updateAvailableSubjects = createSyncUpdate(DB_KEYS.SUBJECT_LIST, 'subject_list', setAvailableSubjects); 
   const updateCurriculum = createSyncUpdate(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
   const updateMessages = createSyncUpdate(DB_KEYS.MESSAGES, 'messages', setMessages);
   const updateGallery = createSyncUpdate(DB_KEYS.GALLERY, 'gallery', setGallery);
@@ -249,7 +237,6 @@ const App: React.FC = () => {
   const updateHomework = createSyncUpdate(DB_KEYS.HOMEWORK, 'homework', setHomeworks);
   const updateFeeStructures = createSyncUpdate(DB_KEYS.FEE_STRUCTURES, 'fee_structures', setFeeStructures);
   const updateFeeTransactions = createSyncUpdate(DB_KEYS.FEE_TRANSACTIONS, 'fee_transactions', setFeeTransactions);
-  const updateCustomTemplates = createSyncUpdate(DB_KEYS.CUSTOM_TEMPLATES, 'custom_templates', setCustomTemplates);
   const updateSchoolBranding = createSyncUpdate(DB_KEYS.SCHOOL_BRANDING, 'school_branding', setSchoolBranding);
   const updatePermissions = createSyncUpdate(DB_KEYS.ACCESS_PERMISSIONS, 'access_permissions', setPermissions);
   const updateSubjects = createSyncUpdate(DB_KEYS.SUBJECTS, 'master_subjects', setSubjects);
@@ -262,13 +249,7 @@ const App: React.FC = () => {
   const deleteTeacher = createSyncDelete(DB_KEYS.TEACHERS, 'teachers', setTeachers);
   const deleteCurriculum = createSyncDelete(DB_KEYS.CURRICULUM, 'curriculum', setCurriculum);
 
-  const updateUserProfile = (updatedUser: User) => {
-    setCurrentUser(updatedUser);
-    storage.set(DB_KEYS.USER, updatedUser);
-    triggerNotification('Security Updated', 'Admin credentials synchronized.', 'success');
-  };
-
-  if (!currentUser) return <Login onLogin={(user) => { setCurrentUser(user); storage.set(DB_KEYS.USER, user); }} />;
+  if (!currentUser) return <Login onLogin={(user) => setCurrentUser(user)} />;
 
   const renderContent = () => {
     const activeStudents = students.filter(s => s.status !== 'CANCELLED');
@@ -277,7 +258,7 @@ const App: React.FC = () => {
       case 'school-setup': return <SchoolSetup subjects={subjects} onUpdateSubjects={updateSubjects} timetable={timetable} onUpdateTimetable={updateTimetable} teachers={teachers} onLogActivity={addActivity} />;
       case 'access-control': return <AccessControl permissions={permissions} onUpdatePermissions={updatePermissions} menuItems={DEFAULT_MENU_ITEMS} />;
       case 'fee-reports': return <FeeReports students={activeStudents} transactions={feeTransactions} />;
-      case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={updateCustomTemplates} students={activeStudents} />;
+      case 'custom-builder': return <CustomProfileBuilder templates={customTemplates} onUpdateTemplates={createSyncUpdate(DB_KEYS.CUSTOM_TEMPLATES, 'custom_templates', setCustomTemplates)} students={activeStudents} />;
       case 'leaves': return <LeaveManagement user={currentUser} leaves={leaves} onUpdateLeaves={updateLeaves} onLogActivity={addActivity} />;
       case 'messages': return <MessageManager user={currentUser} messages={messages} onUpdateMessages={updateMessages} />;
       case 'gallery': return <GalleryManager user={currentUser} gallery={gallery} onUpdateGallery={updateGallery} onDeleteItem={deleteGalleryItem} isDarkMode={isDarkMode} onLogActivity={addActivity} />;
@@ -288,7 +269,7 @@ const App: React.FC = () => {
       case 'teachers': return <TeacherManagement teachers={teachers} setTeachers={updateTeachers} onLogActivity={addActivity} onDeleteTeacher={deleteTeacher} />;
       case 'food': return <FoodChart user={currentUser} foodChart={foodChart} onUpdateFoodChart={updateFoodChart} />;
       case 'curriculum': return <CurriculumManager user={currentUser} curriculum={curriculum} onUpdateCurriculum={updateCurriculum} onDeleteCurriculum={deleteCurriculum} onLogActivity={addActivity} />;
-      case 'marksheet': return <MarksheetManager user={currentUser} students={activeStudents} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={updateAvailableSubjects} branding={schoolBranding} />;
+      case 'marksheet': return <MarksheetManager user={currentUser} students={activeStudents} marks={marks} onUpdateMarks={updateMarks} availableSubjects={availableSubjects} onUpdateSubjects={createSyncUpdate(DB_KEYS.SUBJECT_LIST, 'subject_list', setAvailableSubjects)} branding={schoolBranding} />;
       case 'certs': return <CertificateHub students={activeStudents} branding={schoolBranding} />;
       case 'attendance': return <Attendance user={currentUser} students={activeStudents} attendance={attendance} setAttendance={updateAttendance} />;
       case 'notices': return <NoticeBoard user={currentUser} notices={notices} setNotices={updateNotices} students={activeStudents} onLogActivity={addActivity} onDeleteNotice={deleteNotice} />;
@@ -306,7 +287,7 @@ const App: React.FC = () => {
       {isSyncing && (
         <div className="fixed top-4 right-4 z-[6000] bg-indigo-600 text-white px-4 py-2 rounded-full shadow-2xl flex items-center gap-3 animate-pulse border border-indigo-400 scale-75 md:scale-100">
            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></div>
-           <span className="text-[10px] font-black uppercase tracking-widest">Auto Sync</span>
+           <span className="text-[10px] font-black uppercase tracking-widest">Realtime Node Active</span>
         </div>
       )}
       <div className="fixed top-16 right-4 z-[7000] flex flex-col gap-2 w-full max-w-[280px]">
@@ -317,7 +298,7 @@ const App: React.FC = () => {
            </div>
          ))}
       </div>
-      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={() => { setCurrentUser(null); storage.clear(DB_KEYS.USER); }} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} permissions={permissions} onSync={syncAll} isSyncing={isSyncing} />
+      <Sidebar role={currentUser.role} activeTab={activeTab} setActiveTab={updateViewedStamp} onLogout={() => setCurrentUser(null)} userName={currentUser.name} isDarkMode={isDarkMode} toggleTheme={() => setIsDarkMode(!isDarkMode)} unreadCounts={{notices:0, messages:0, gallery:0, leaves:0}} currentLang={currentLang} toggleLanguage={() => setCurrentLang(currentLang === Language.EN ? Language.GU : Language.EN)} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} branding={schoolBranding} onUpdateBranding={updateSchoolBranding} permissions={permissions} onSync={syncAll} isSyncing={isSyncing} />
       <main className="flex-1 overflow-y-auto mobile-scroll relative z-10 custom-scrollbar p-4 md:p-12">
         <div className="max-w-7xl mx-auto pb-24 md:pb-10">{renderContent()}</div>
       </main>
