@@ -7,13 +7,16 @@ interface NoticeBoardProps {
   notices: Notice[];
   setNotices: (notices: Notice[]) => void;
   students?: Student[];
+  // Added optional onDeleteNotice to fix Type error in App.tsx
+  onDeleteNotice?: (id: string) => void;
   onLogActivity: (actionType: 'CREATE' | 'UPDATE' | 'DELETE', module: string, target: string, details?: string) => void;
 }
 
 const CATEGORIES = ['ALL', 'URGENT', 'EXAM', 'HOLIDAY', 'FEE', 'EVENT', 'GENERAL'];
 const CLASSES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 
-const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, students, onLogActivity }) => {
+// Added onDeleteNotice to destructuring
+const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, students, onLogActivity, onDeleteNotice }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -134,8 +137,15 @@ const NoticeBoard: React.FC<NoticeBoardProps> = ({ user, notices, setNotices, st
 
   const confirmDelete = () => {
     if (!isAdmin || !noticeToDelete) return;
-    const newList = notices.filter(n => n.id !== noticeToDelete.id);
-    setNotices(newList);
+    
+    // Use onDeleteNotice if provided (to use central sync delete), else filter locally
+    if (onDeleteNotice) {
+      onDeleteNotice(noticeToDelete.id);
+    } else {
+      const newList = notices.filter(n => n.id !== noticeToDelete.id);
+      setNotices(newList);
+    }
+    
     onLogActivity('DELETE', 'Notice Board', noticeToDelete.title, 'Removed announcement from system feed.');
     if (editingId === noticeToDelete.id) resetForm();
     setNoticeToDelete(null);

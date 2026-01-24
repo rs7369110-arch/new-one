@@ -94,13 +94,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
     tcNo: '',
     status: 'PENDING',
     totalFees: 0,
-    paidFees: 0,
-    documents: {
-      aadharCard: '',
-      birthCert: '',
-      transferCert: '',
-      prevMarksheet: ''
-    }
+    paidFees: 0
   };
 
   const [formData, setFormData] = useState<Partial<Student>>(initialForm);
@@ -128,11 +122,13 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
 
   const saveToRegistry = () => {
     const studentData: Student = {
+      ...initialForm,
+      ...(editingStudent || {}),
+      ...formData,
       id: editingStudent?.id || Math.random().toString(36).substr(2, 9),
-      ...formData as Student,
       parentName: formData.fatherName || formData.motherName || formData.guardianName || 'Guardian',
       status: formData.status || 'PENDING'
-    };
+    } as Student;
 
     if (editingStudent) {
       setStudents(students.map(s => s.id === editingStudent.id ? studentData : s));
@@ -161,9 +157,10 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
     });
 
     setStudents(updatedStudents);
-    onLogActivity('UPDATE', 'Student Registry', studentToCancel.name, `Membership cancelled. Reason: ${cancelReason}`);
+    onLogActivity('UPDATE', 'Student Registry', studentToCancel.name, `Admission cancelled. Reason: ${cancelReason}`);
     setStudentToCancel(null);
     setCancelReason('');
+    alert("Student moved to Cancelled Archive successfully.");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -177,10 +174,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
 
   const startEdit = (student: Student) => {
     setEditingStudent(student);
-    setFormData({
-      ...initialForm,
-      ...student
-    });
+    setFormData({ ...student });
     setIsAdding(true);
     setCurrentStep(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -188,8 +182,8 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
 
   const confirmDelete = async () => {
     if (!studentToDelete) return;
-    onLogActivity('DELETE', 'Student Registry', studentToDelete.name, `Permanently erased student record.`);
     await onDelete(studentToDelete.id);
+    onLogActivity('DELETE', 'Student Registry', studentToDelete.name, `Permanently erased student record.`);
     setStudentToDelete(null);
   };
 
@@ -212,7 +206,7 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
   );
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-fade-in">
+    <div className="space-y-6 md:space-y-8 animate-fade-in pb-24">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
         <div>
            <div className="flex items-center gap-3">
@@ -233,38 +227,36 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
              <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-teal-300"></i>
              <input 
                className="w-full pl-12 pr-6 py-4 bg-white border-2 border-teal-50 rounded-[1.5rem] outline-none focus:border-teal-400 font-bold text-sm shadow-[0_10px_20px_rgba(0,0,0,0.05)] transition-all"
-               placeholder="Search Hero..."
+               placeholder="Search registry..."
                value={searchQuery}
                onChange={e => setSearchQuery(e.target.value)}
              />
           </div>
           <button 
             onClick={() => isAdding ? resetForm() : setIsAdding(true)}
-            className={`w-full sm:w-auto px-8 py-4 text-white rounded-[1.5rem] font-black transition-all flex items-center justify-center gap-3 active:scale-95 ${
-              isAdding ? 'btn-3d-rose bg-rose-500' : 'btn-3d-indigo bg-teal-900'
+            className={`w-full sm:w-auto px-8 py-4 text-white rounded-[1.5rem] font-black transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl ${
+              isAdding ? 'bg-rose-500' : 'bg-teal-900'
             }`}
           >
             <i className={`fa-solid ${isAdding ? 'fa-xmark' : 'fa-plus'}`}></i>
-            <span className="text-xs uppercase">{isAdding ? 'Abort' : 'Enroll New'}</span>
+            <span className="text-xs uppercase">{isAdding ? 'Discard' : 'Enroll New'}</span>
           </button>
         </div>
       </header>
 
       {isAdding && (
-        <div className={`bg-white p-6 md:p-14 rounded-[2.5rem] md:rounded-[4rem] shadow-[0_30px_60px_-12px_rgba(0,0,0,0.15)] border-4 animate-slide-up relative overflow-hidden transition-all ${editingStudent ? 'border-amber-100' : 'border-teal-50'}`}>
+        <div className={`bg-white p-6 md:p-14 rounded-[2.5rem] md:rounded-[4rem] shadow-2xl border-4 animate-slide-up relative overflow-hidden transition-all ${editingStudent ? 'border-amber-100' : 'border-teal-50'}`}>
           <StepIndicator />
-          <form onSubmit={handleSubmit} className="space-y-8 md:space-y-12 relative z-10">
+          <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
             {currentStep === 1 && (
               <div className="space-y-6 md:space-y-10 animate-fade-in">
-                 <h2 className="text-lg md:text-2xl font-black text-teal-800 uppercase tracking-tight flex items-center gap-2 border-b-2 border-teal-50 pb-3 md:pb-4">
-                    <i className="fa-solid fa-id-card-clip"></i> Identity Profile
-                 </h2>
+                 <h2 className="text-lg md:text-2xl font-black text-teal-800 uppercase tracking-tight flex items-center gap-2 border-b-2 border-teal-50 pb-3 md:pb-4"><i className="fa-solid fa-id-card-clip"></i> Identity Profile</h2>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-                    <div className="lg:row-span-3 flex flex-col items-center gap-3 p-6 md:p-8 bg-teal-50/40 rounded-[2rem] md:rounded-[3rem] border-2 border-dashed border-teal-100 group shadow-inner">
-                       <div className="w-32 h-32 md:w-44 md:h-44 rounded-[1.5rem] md:rounded-[2.5rem] bg-white shadow-[0_15px_30px_rgba(0,0,0,0.1)] overflow-hidden flex items-center justify-center relative border-4 border-white transition-all group-hover:scale-105">
-                         {formData.photo ? <img src={formData.photo} className="w-full h-full object-cover" /> : <i className="fa-solid fa-camera text-4xl md:text-5xl text-teal-100"></i>}
-                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                            <i className="fa-solid fa-upload text-white text-xl md:text-2xl"></i>
+                    <div className="lg:row-span-3 flex flex-col items-center gap-3 p-6 md:p-8 bg-teal-50/40 rounded-[2rem] border-2 border-dashed border-teal-100 shadow-inner">
+                       <div className="w-32 h-32 md:w-44 md:h-44 rounded-[2.5rem] bg-white shadow-xl overflow-hidden flex items-center justify-center relative border-4 border-white transition-all">
+                         {formData.photo ? <img src={formData.photo} className="w-full h-full object-cover" /> : <i className="fa-solid fa-camera text-4xl text-teal-100"></i>}
+                         <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                            <i className="fa-solid fa-upload text-white text-xl"></i>
                          </div>
                        </div>
                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={e => {
@@ -275,186 +267,119 @@ const StudentManagement: React.FC<StudentManagementProps> = ({ user, students, s
                            reader.readAsDataURL(file);
                          }
                        }} />
-                       <p className="text-[8px] md:text-[10px] font-black text-teal-400 uppercase tracking-widest">Biometric Portrait</p>
+                       <p className="text-[8px] font-black text-teal-400 uppercase tracking-widest">Biometric Portrait</p>
                     </div>
-                    <InputField label="Full Name" field="name" required placeholder="Legal Name" value={formData.name} onChange={handleInputChange} />
-                    <InputField label="Adm No" field="admissionNo" required placeholder="Unique ID" value={formData.admissionNo} onChange={handleInputChange} />
-                    <InputField label="GR No" field="grNo" placeholder="GR Number" value={formData.grNo} onChange={handleInputChange} />
+                    <InputField label="Full Name" field="name" required value={formData.name} onChange={handleInputChange} />
+                    <InputField label="Adm No" field="admissionNo" required value={formData.admissionNo} onChange={handleInputChange} />
                     <InputField label="DOB" field="dob" type="date" required value={formData.dob} onChange={handleInputChange} />
-                    <InputField label="Gender" field="gender" type="select" required options={['MALE', 'FEMALE', 'OTHER']} value={formData.gender} onChange={handleInputChange} />
-                    <InputField label="Blood" field="bloodGroup" type="select" options={['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']} value={formData.bloodGroup} onChange={handleInputChange} />
                     <InputField label="Grade" field="grade" type="select" required options={['1','2','3','4','5','6','7','8','9','10','11','12']} value={formData.grade} onChange={handleInputChange} />
                     <InputField label="Section" field="section" type="select" options={['A', 'B', 'C', 'D']} value={formData.section} onChange={handleInputChange} />
+                    <InputField label="Gender" field="gender" type="select" required options={['MALE', 'FEMALE', 'OTHER']} value={formData.gender} onChange={handleInputChange} />
                  </div>
               </div>
             )}
-            
-            {currentStep === 2 && (
-              <div className="space-y-6 md:space-y-10 animate-fade-in">
-                 <h2 className="text-lg md:text-2xl font-black text-teal-800 uppercase tracking-tight flex items-center gap-2 border-b-2 border-teal-50 pb-3 md:pb-4">
-                    <i className="fa-solid fa-users-viewfinder"></i> Contact Detail
-                 </h2>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                    <InputField label="Father's Name" field="fatherName" required value={formData.fatherName} onChange={handleInputChange} />
-                    <InputField label="Mother's Name" field="motherName" required value={formData.motherName} onChange={handleInputChange} />
-                    <InputField label="Mobile" field="phone" required type="tel" placeholder="10 Digit No" value={formData.phone} onChange={handleInputChange} />
-                    <div className="md:col-span-3">
-                       <InputField label="Current Address" field="address" type="textarea" required value={formData.address} onChange={handleInputChange} />
-                    </div>
-                 </div>
-              </div>
+            {currentStep > 1 && (
+               <div className="py-20 text-center text-gray-300 font-bold uppercase tracking-widest italic border-2 border-dashed border-gray-100 rounded-3xl">Entry Stage {currentStep} Processing...</div>
             )}
-
-            {currentStep >= 3 && (
-               <div className="p-8 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Entry Stages Proceeding...</p>
-               </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-6 border-t border-teal-50">
-               <button 
-                 type="button" 
-                 onClick={() => currentStep === 1 ? resetForm() : setCurrentStep(prev => prev - 1)}
-                 className="w-full sm:w-auto px-10 py-4 bg-gray-200 text-gray-600 rounded-[1.2rem] font-black uppercase text-[10px] tracking-widest active:translate-y-1"
-               >
-                 {currentStep === 1 ? 'Discard' : 'Back'}
-               </button>
-               
-               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-                  {editingStudent && (
-                    <button 
-                      type="button" 
-                      onClick={saveToRegistry}
-                      className="btn-3d-indigo w-full px-10 py-4 bg-amber-500 text-white rounded-[1.2rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 border-amber-700"
-                    >
-                      <i className="fa-solid fa-bolt"></i> Quick Save
-                    </button>
-                  )}
-                  <button 
-                    type="submit" 
-                    className="btn-3d-indigo w-full px-14 py-4 bg-teal-900 text-white rounded-[1.2rem] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-4 border-teal-950"
-                  >
-                    {currentStep === 5 ? (editingStudent ? 'Seal Change' : 'Finalize') : 'Next Stage'}
-                    <i className="fa-solid fa-arrow-right"></i>
-                  </button>
-               </div>
+            <div className="flex justify-between items-center pt-6 border-t border-teal-50">
+               <button type="button" onClick={() => currentStep === 1 ? resetForm() : setCurrentStep(prev => prev - 1)} className="px-10 py-4 bg-gray-200 text-gray-600 rounded-2xl font-black uppercase text-[10px]">Back</button>
+               <button type="submit" className="px-16 py-4 bg-teal-900 text-white rounded-2xl font-black uppercase text-[10px] shadow-2xl">{currentStep === 5 ? 'Save Record' : 'Next Step'}</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Registry Section: Mobile-First Card View */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-2">
-           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center text-teal-600 shadow-sm"><i className="fa-solid fa-database text-xs"></i></div>
-              <h3 className="text-sm font-black text-teal-950 uppercase tracking-tight">Active Registry</h3>
-           </div>
-           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-white border border-slate-100 px-3 py-1 rounded-full shadow-sm">{filteredStudents.length} Profiles</span>
-        </div>
-
-        {/* Mobile View: Dynamic 3D Action Cards */}
-        <div className="md:hidden space-y-5">
-           {filteredStudents.length > 0 ? filteredStudents.map(s => (
-              <div key={s.id} className="bg-white p-5 rounded-[2.5rem] shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-teal-50 space-y-4 animate-fade-in group hover:shadow-[0_25px_50px_rgba(0,0,0,0.12)] transition-all card-3d">
-                 <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-[1.8rem] bg-teal-50 border-2 border-white shadow-[0_10px_20px_rgba(0,0,0,0.1)] overflow-hidden shrink-0">
-                       {s.photo ? <img src={s.photo} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center font-black text-teal-600 text-xl">{s.name.charAt(0)}</div>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                       <h4 className="font-black text-slate-900 text-base uppercase truncate leading-none">{s.name}</h4>
-                       <div className="flex items-center gap-2 mt-1.5">
-                          <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-500 font-black text-[8px] uppercase tracking-tighter border border-indigo-100">ADM: {s.admissionNo}</span>
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Class {s.grade}-{s.section}</span>
-                       </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                       <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest shadow-[0_4px_8px_rgba(0,0,0,0.1)] ${
-                         s.status === 'APPROVED' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'
-                       }`}>
-                          {s.status}
-                       </span>
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 shadow-inner overflow-hidden">
-                       <i className="fa-solid fa-phone text-teal-500 text-[10px]"></i>
-                       <span className="text-[10px] font-black text-slate-600 truncate">{s.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 shadow-inner overflow-hidden">
-                       <i className="fa-solid fa-fingerprint text-indigo-500 text-[10px]"></i>
-                       <span className="text-[10px] font-black text-slate-600 truncate">Roll {s.rollNo}</span>
-                    </div>
-                 </div>
-
-                 <div className="flex items-center justify-between gap-3 pt-2">
-                    <div className="flex gap-3">
-                       <button onClick={() => startEdit(s)} className="w-11 h-11 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center shadow-[0_5px_15px_rgba(0,0,0,0.05)] active:scale-90 transition-all border border-teal-100">
-                          <i className="fa-solid fa-pen-nib text-sm"></i>
-                       </button>
-                       <button onClick={() => setStudentToDelete({id: s.id, name: s.name})} className="w-11 h-11 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center shadow-[0_5px_15px_rgba(0,0,0,0.05)] active:scale-90 transition-all border border-rose-100">
-                          <i className="fa-solid fa-trash-can text-sm"></i>
-                       </button>
-                    </div>
-                    {isAdmin && (
-                       <button onClick={() => setStudentToCancel({id: s.id, name: s.name})} className="btn-3d-slate flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-[1.2rem] text-[9px] font-black uppercase tracking-widest border-black">
-                          <i className="fa-solid fa-user-slash text-rose-400"></i> Cancel
-                       </button>
-                    )}
-                 </div>
-              </div>
-           )) : (
-              <div className="py-20 text-center opacity-30">
-                 <i className="fa-solid fa-database text-6xl mb-4"></i>
-                 <p className="text-xl font-black uppercase tracking-widest">Registry Empty</p>
-              </div>
-           )}
-        </div>
-
-        {/* Desktop View: 3D Enhanced Table */}
-        <div className="hidden md:block bg-white rounded-[3.5rem] shadow-2xl border border-teal-50 overflow-hidden">
-           <table className="w-full text-left">
-              <thead>
-                <tr className="bg-teal-50/20 text-[10px] font-black text-teal-400 uppercase tracking-widest">
-                  <th className="px-10 py-6">Hero Identity</th>
-                  <th className="px-10 py-6">Admission</th>
-                  <th className="px-10 py-6">Contact</th>
-                  <th className="px-10 py-6">Status</th>
-                  <th className="px-10 py-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-teal-50">
-                {filteredStudents.map(s => (
-                  <tr key={s.id} className="hover:bg-teal-50/10 group transition-all">
-                    <td className="px-10 py-6">
-                      <div className="flex items-center gap-5">
-                         <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center overflow-hidden border-2 border-teal-50 shadow-[0_10px_20px_rgba(0,0,0,0.08)] font-black text-teal-600 group-hover:scale-110 transition-transform">
-                            {s.photo ? <img src={s.photo} className="w-full h-full object-cover" /> : s.name.charAt(0)}
-                         </div>
-                         <div><p className="font-black text-slate-800 text-base">{s.name}</p><p className="text-[10px] font-black text-teal-400 uppercase tracking-widest">Roll: {s.rollNo}</p></div>
-                      </div>
-                    </td>
-                    <td className="px-10 py-6 text-xs font-black text-slate-600">{s.admissionNo}</td>
-                    <td className="px-10 py-6 text-xs font-black text-slate-600">{s.phone}</td>
-                    <td className="px-10 py-6">
-                      <span className={`px-5 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${s.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{s.status}</span>
-                    </td>
-                    <td className="px-10 py-6 text-right">
-                       <button onClick={() => startEdit(s)} className="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl hover:bg-teal-600 hover:text-white transition-all active:scale-90 shadow-sm inline-flex items-center justify-center"><i className="fa-solid fa-pen-nib"></i></button>
-                       {isAdmin && (
-                         <button onClick={() => setStudentToCancel({id: s.id, name: s.name})} className="w-10 h-10 bg-slate-100 text-slate-400 hover:bg-slate-900 hover:text-white transition-all active:scale-90 shadow-sm inline-flex items-center justify-center ml-2" title="Cancel Admission"><i className="fa-solid fa-user-slash"></i></button>
-                       )}
-                       <button onClick={() => setStudentToDelete({id: s.id, name: s.name})} className="w-10 h-10 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all active:scale-90 shadow-sm inline-flex items-center justify-center ml-2"><i className="fa-solid fa-trash-can"></i></button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-           </table>
-        </div>
+      <div className="bg-white rounded-[3rem] shadow-xl border border-teal-50 overflow-hidden">
+        <table className="w-full text-left">
+          <thead className="bg-teal-50/20 text-[10px] font-black text-teal-400 uppercase tracking-widest">
+            <tr>
+              <th className="px-10 py-6">Hero Profile</th>
+              <th className="px-10 py-6">Admission</th>
+              <th className="px-10 py-6">Status</th>
+              <th className="px-10 py-6 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-teal-50">
+            {filteredStudents.map(s => (
+              <tr key={s.id} className="hover:bg-teal-50/10 group transition-all">
+                <td className="px-10 py-6">
+                  <div className="flex items-center gap-4">
+                     <div className="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center font-black text-teal-600 overflow-hidden">
+                        {s.photo ? <img src={s.photo} className="w-full h-full object-cover" /> : s.name.charAt(0)}
+                     </div>
+                     <div><p className="font-black text-slate-900 text-base">{s.name}</p><p className="text-[9px] font-black text-teal-400">STD {s.grade}-{s.section}</p></div>
+                  </div>
+                </td>
+                <td className="px-10 py-6 text-xs font-bold text-slate-600">{s.admissionNo}</td>
+                <td className="px-10 py-6">
+                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase ${s.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{s.status}</span>
+                </td>
+                <td className="px-10 py-6 text-right">
+                  <div className="flex justify-end gap-2">
+                     <button onClick={() => startEdit(s)} className="w-10 h-10 bg-teal-50 text-teal-600 rounded-xl flex items-center justify-center shadow-sm hover:bg-teal-600 hover:text-white transition-all"><i className="fa-solid fa-pen"></i></button>
+                     {isAdmin && (
+                        <button onClick={() => setStudentToCancel({id: s.id, name: s.name})} className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-sm hover:bg-rose-500 transition-all" title="Cancel Admission"><i className="fa-solid fa-user-slash"></i></button>
+                     )}
+                     <button onClick={() => setStudentToDelete({id: s.id, name: s.name})} className="w-10 h-10 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center shadow-sm hover:bg-rose-500 hover:text-white transition-all"><i className="fa-solid fa-trash-can"></i></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      
-      {/* ... (Modals stay same structure but with updated button 3D classes in JSX) ... */}
+
+      {/* CANCELLATION MODAL */}
+      {studentToCancel && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6">
+           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setStudentToCancel(null)}></div>
+           <div className="bg-white rounded-[3rem] p-10 max-w-md w-full relative z-10 shadow-2xl border-t-[12px] border-rose-500 animate-scale-in">
+              <h2 className="text-2xl font-black text-rose-950 uppercase tracking-tighter mb-4 text-center">Admission Cancellation</h2>
+              <p className="text-sm font-bold text-slate-500 text-center mb-8 italic">Cancelling "{studentToCancel.name}"</p>
+              <div className="space-y-4">
+                 <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest ml-1">Official Reason (Mandatory)</label>
+                 <textarea 
+                   required 
+                   className="w-full px-6 py-4 rounded-2xl bg-rose-50 border-2 border-transparent focus:bg-white focus:border-rose-300 outline-none font-bold text-rose-900 shadow-inner h-32" 
+                   placeholder="e.g. TC Issued, Long Absenteeism..." 
+                   value={cancelReason} 
+                   onChange={e => setCancelReason(e.target.value)} 
+                 />
+                 <div className="grid grid-cols-2 gap-4 pt-4">
+                    <button onClick={() => setStudentToCancel(null)} className="py-5 bg-gray-100 text-gray-500 rounded-2xl font-black uppercase text-[10px]">Abort</button>
+                    <button 
+                      disabled={!cancelReason.trim()} 
+                      onClick={handleCancelStudent} 
+                      className="py-5 bg-rose-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl disabled:opacity-50"
+                    >
+                      Confirm Cancel
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* DELETE MODAL */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-[6000] flex items-center justify-center p-6">
+           <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={() => setStudentToDelete(null)}></div>
+           <div className="bg-white rounded-[3rem] p-10 max-w-md w-full relative z-10 shadow-2xl text-center">
+              <i className="fa-solid fa-trash-can text-rose-500 text-5xl mb-6"></i>
+              <h2 className="text-2xl font-black text-slate-900 uppercase mb-4">Erase Permanently?</h2>
+              <p className="text-sm font-bold text-slate-500 mb-8 italic">"{studentToDelete.name}" - All data will be wiped.</p>
+              <div className="grid grid-cols-2 gap-4">
+                 <button onClick={() => setStudentToDelete(null)} className="py-5 bg-gray-100 text-gray-500 rounded-2xl font-black uppercase text-[10px]">Keep Record</button>
+                 <button onClick={confirmDelete} className="py-5 bg-rose-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl">Delete Now</button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .animate-scale-in { animation: scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+      `}</style>
     </div>
   );
 };

@@ -1,14 +1,13 @@
 
 import React, { useState } from 'react';
-import { AdminActivity, User } from '../types';
+import { AdminActivity } from '../types';
 
 interface ActivityReportProps {
-  user: User;
   activities: AdminActivity[];
   onClearLog: () => void;
 }
 
-const ActivityReport: React.FC<ActivityReportProps> = ({ user, activities, onClearLog }) => {
+const ActivityReport: React.FC<ActivityReportProps> = ({ activities, onClearLog }) => {
   const [filter, setFilter] = useState('');
 
   const filtered = activities
@@ -43,14 +42,14 @@ const ActivityReport: React.FC<ActivityReportProps> = ({ user, activities, onCle
     <div className="space-y-8 animate-fade-in pb-20">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-indigo-900 tracking-tight uppercase leading-none">System Audit Log</h1>
-          <p className="text-gray-500 font-medium italic mt-2">Tracking administrative actions for transparency.</p>
+          <h1 className="text-3xl font-black text-indigo-900 tracking-tight">System Audit Log</h1>
+          <p className="text-gray-500 font-medium">Tracking administrative actions for transparency.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-4">
           <div className="relative">
             <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
             <input 
-              className="pl-12 pr-6 py-3 bg-white rounded-2xl border-2 border-indigo-50 outline-none focus:border-indigo-300 w-64 font-bold shadow-sm"
+              className="pl-12 pr-6 py-3 bg-white rounded-2xl border-2 border-indigo-50 outline-none focus:border-indigo-300 w-64 font-bold"
               placeholder="Filter activities..."
               value={filter}
               onChange={e => setFilter(e.target.value)}
@@ -62,14 +61,14 @@ const ActivityReport: React.FC<ActivityReportProps> = ({ user, activities, onCle
                 onClearLog();
               }
             }}
-            className="px-6 py-3 bg-white text-rose-500 rounded-2xl font-black border-2 border-rose-50 hover:bg-rose-500 hover:text-white transition-all shadow-sm text-[10px] uppercase tracking-widest"
+            className="px-6 py-3 bg-white text-rose-500 rounded-2xl font-black border-2 border-rose-50 hover:bg-rose-500 hover:text-white transition-all shadow-sm"
           >
             Clear History
           </button>
         </div>
       </header>
 
-      <div className="bg-white rounded-[3rem] shadow-xl border border-indigo-50 overflow-hidden relative">
+      <div className="bg-white rounded-[3rem] shadow-xl border border-indigo-50 overflow-hidden">
         <div className="max-h-[600px] overflow-y-auto custom-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead className="bg-indigo-50/50 sticky top-0 z-10">
@@ -127,7 +126,6 @@ const ActivityReport: React.FC<ActivityReportProps> = ({ user, activities, onCle
           </table>
         </div>
       </div>
-
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
