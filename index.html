@@ -37,21 +37,27 @@
     <div id="root"></div>
 <script type="module" src="/index.tsx"></script>
 <script>
+  /**
+   * Defensive Service Worker Registration
+   * Skips registration if running in a cross-origin sandbox or non-secure context
+   */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      /**
-       * Resolve the Service Worker path relative to the current location 
-       * to prevent origin mismatch errors in frames.
-       */
-      const swUrl = './sw.js';
+      const isSandbox = window.location.origin.includes('usercontent.goog') || 
+                       window.location.origin.includes('ai.studio') ||
+                       window.origin === 'null';
       
-      navigator.serviceWorker.register(swUrl)
+      if (isSandbox) {
+        console.info('SW: Sandbox detected. Offline capabilities managed by local cache.');
+        return;
+      }
+
+      navigator.serviceWorker.register('./sw.js')
         .then(reg => {
-          console.log('SW Registered successfully:', reg.scope);
+          console.debug('SW: Registered at:', reg.scope);
         })
         .catch(err => {
-          // If registration fails (common in restricted sandboxes), we log a warning but keep the app functional.
-          console.warn('Service Worker registration bypassed or restricted in this environment:', err.message);
+          console.debug('SW: Manual skip.');
         });
     });
   }

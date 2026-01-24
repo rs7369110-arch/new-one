@@ -130,6 +130,8 @@ export interface Student {
   totalFees: number;
   paidFees: number;
   photo?: string;
+  fatherPhoto?: string;
+  motherPhoto?: string;
   aadharNo?: string;
   uidNo?: string;
   panNo?: string;

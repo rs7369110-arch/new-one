@@ -41,6 +41,7 @@ export interface MenuItem {
 
 export const DEFAULT_MENU_ITEMS: MenuItem[] = [
   { id: 'dashboard', labels: { [Language.EN]: 'Dashboard', [Language.GU]: 'ડેશબોર્ડ' }, icon: 'fa-house-chimney', color: 'hover:text-white', active: 'bg-white/10 border-white', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], lightIconColor: 'text-slate-900' },
+  { id: 'student-search', labels: { [Language.EN]: 'Search Student', [Language.GU]: 'વિદ્યાર્થી શોધ' }, icon: 'fa-magnifying-glass-chart', roles: [UserRole.ADMIN, UserRole.TEACHER], color: 'hover:text-white', active: 'bg-white/10 border-white', lightIconColor: 'text-slate-900' },
   { id: 'attendance', labels: { [Language.EN]: 'Attendance', [Language.GU]: 'હાજરી' }, icon: 'fa-calendar-check', roles: [UserRole.ADMIN, UserRole.STUDENT, UserRole.PARENT, UserRole.TEACHER], color: 'hover:text-white', active: 'bg-white/10 border-white', lightIconColor: 'text-slate-900' },
   { id: 'students', labels: { [Language.EN]: 'Student Entry', [Language.GU]: 'વિદ્યાર્થી એન્ટ્રી' }, icon: 'fa-user-plus', color: 'hover:text-white', active: 'bg-white/10 border-white', roles: [UserRole.ADMIN, UserRole.TEACHER], lightIconColor: 'text-slate-900' },
   { id: 'cancelled-students', labels: { [Language.EN]: 'Cancelled List', [Language.GU]: 'રદ કરેલ યાદી' }, icon: 'fa-user-slash', color: 'hover:text-white', active: 'bg-white/10 border-white', roles: [UserRole.ADMIN], lightIconColor: 'text-slate-900' },
